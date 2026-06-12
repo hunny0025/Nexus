@@ -1,0 +1,12 @@
+[
+  {"id": "12301", "name": "Howrah Rajdhani Express", "current_station": "NDLS", "next_station": "CNB", "speed_kmph": 130, "passenger_count": 820, "status": "ON_TIME"},
+  {"id": "12302", "name": "New Delhi Rajdhani Express", "current_station": "PNBE", "next_station": "MGS", "speed_kmph": 120, "passenger_count": 780, "status": "ON_TIME"},
+  {"id": "12001", "name": "Bhopal Shatabdi Express", "current_station": "HNZ", "next_station": "BPL", "speed_kmph": 140, "passenger_count": 640, "status": "ON_TIME"},
+  {"id": "12951", "name": "Mumbai Rajdhani Express", "current_station": "BCT", "next_station": "ADI", "speed_kmph": 130, "passenger_count": 900, "status": "ON_TIME"},
+  {"id": "12259", "name": "Sealdah Duronto Express", "current_station": "ALD", "next_station": "MGS", "speed_kmph": 125, "passenger_count": 720, "status": "ON_TIME"},
+  {"id": "12621", "name": "Tamil Nadu Express", "current_station": "NGP", "next_station": "SC", "speed_kmph": 110, "passenger_count": 1050, "status": "ON_TIME"},
+  {"id": "12627", "name": "Karnataka Express", "current_station": "SC", "next_station": "SBC", "speed_kmph": 105, "passenger_count": 980, "status": "ON_TIME"},
+  {"id": "12015", "name": "Ajmer Shatabdi Express", "current_station": "JP", "next_station": "NDLS", "speed_kmph": 130, "passenger_count": 580, "status": "ON_TIME"},
+  {"id": "12431", "name": "Thiruvananthapuram Rajdhani", "current_station": "MAS", "next_station": "SBC", "speed_kmph": 110, "passenger_count": 680, "status": "ON_TIME"},
+  {"id": "12957", "name": "Swarna Jayanti Rajdhani", "current_station": "ADI", "next_station": "JP", "speed_kmph": 120, "passenger_count": 750, "status": "ON_TIME"}
+]

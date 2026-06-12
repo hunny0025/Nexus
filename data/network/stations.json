@@ -1,0 +1,137 @@
+[
+  {
+    "id": "NDLS",
+    "name": "New Delhi",
+    "zone": "NR",
+    "lat": 28.6428,
+    "lng": 77.2195,
+    "platform_count": 16,
+    "is_junction": true
+  },
+  {
+    "id": "HNZ",
+    "name": "Hazrat Nizamuddin",
+    "zone": "NR",
+    "lat": 28.5894,
+    "lng": 77.2537,
+    "platform_count": 7,
+    "is_junction": false
+  },
+  {
+    "id": "CNB",
+    "name": "Kanpur Central",
+    "zone": "NCR",
+    "lat": 26.4535,
+    "lng": 80.3512,
+    "platform_count": 10,
+    "is_junction": true
+  },
+  {
+    "id": "ALD",
+    "name": "Prayagraj Junction",
+    "zone": "NCR",
+    "lat": 25.4278,
+    "lng": 81.8832,
+    "platform_count": 10,
+    "is_junction": true
+  },
+  {
+    "id": "MGS",
+    "name": "Mughal Sarai Junction",
+    "zone": "ECR",
+    "lat": 25.2809,
+    "lng": 83.1174,
+    "platform_count": 8,
+    "is_junction": true
+  },
+  {
+    "id": "PNBE",
+    "name": "Patna Junction",
+    "zone": "ECR",
+    "lat": 25.6075,
+    "lng": 85.1009,
+    "platform_count": 10,
+    "is_junction": true
+  },
+  {
+    "id": "BPL",
+    "name": "Bhopal Junction",
+    "zone": "WCR",
+    "lat": 23.2689,
+    "lng": 77.4124,
+    "platform_count": 6,
+    "is_junction": true
+  },
+  {
+    "id": "NGP",
+    "name": "Nagpur Junction",
+    "zone": "CR",
+    "lat": 21.1503,
+    "lng": 79.0754,
+    "platform_count": 8,
+    "is_junction": true
+  },
+  {
+    "id": "SC",
+    "name": "Secunderabad Junction",
+    "zone": "SCR",
+    "lat": 17.4337,
+    "lng": 78.5016,
+    "platform_count": 10,
+    "is_junction": true
+  },
+  {
+    "id": "MAS",
+    "name": "Chennai Central",
+    "zone": "SR",
+    "lat": 13.0827,
+    "lng": 80.2707,
+    "platform_count": 12,
+    "is_junction": true
+  },
+  {
+    "id": "SBC",
+    "name": "KSR Bengaluru City",
+    "zone": "SWR",
+    "lat": 12.9782,
+    "lng": 77.5712,
+    "platform_count": 10,
+    "is_junction": true
+  },
+  {
+    "id": "BCT",
+    "name": "Mumbai Central",
+    "zone": "WR",
+    "lat": 18.9690,
+    "lng": 72.8198,
+    "platform_count": 5,
+    "is_junction": false
+  },
+  {
+    "id": "ADI",
+    "name": "Ahmedabad Junction",
+    "zone": "WR",
+    "lat": 23.0258,
+    "lng": 72.6007,
+    "platform_count": 12,
+    "is_junction": true
+  },
+  {
+    "id": "JP",
+    "name": "Jaipur Junction",
+    "zone": "NWR",
+    "lat": 26.9196,
+    "lng": 75.7878,
+    "platform_count": 6,
+    "is_junction": true
+  },
+  {
+    "id": "LKO",
+    "name": "Lucknow Charbagh",
+    "zone": "NR",
+    "lat": 26.8330,
+    "lng": 80.9210,
+    "platform_count": 9,
+    "is_junction": true
+  }
+]

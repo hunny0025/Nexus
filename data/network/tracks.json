@@ -1,0 +1,22 @@
+[
+  {"id": "TRK_NDLS_HNZ", "from_id": "NDLS", "to_id": "HNZ", "distance_km": 10, "max_speed_kmph": 80, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_NDLS_JP", "from_id": "NDLS", "to_id": "JP", "distance_km": 308, "max_speed_kmph": 130, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_NDLS_CNB", "from_id": "NDLS", "to_id": "CNB", "distance_km": 440, "max_speed_kmph": 130, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_NDLS_LKO", "from_id": "NDLS", "to_id": "LKO", "distance_km": 512, "max_speed_kmph": 120, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_CNB_LKO", "from_id": "CNB", "to_id": "LKO", "distance_km": 82, "max_speed_kmph": 110, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_CNB_ALD", "from_id": "CNB", "to_id": "ALD", "distance_km": 198, "max_speed_kmph": 120, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_ALD_MGS", "from_id": "ALD", "to_id": "MGS", "distance_km": 128, "max_speed_kmph": 110, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_MGS_PNBE", "from_id": "MGS", "to_id": "PNBE", "distance_km": 228, "max_speed_kmph": 110, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_HNZ_ALD", "from_id": "HNZ", "to_id": "ALD", "distance_km": 634, "max_speed_kmph": 120, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_HNZ_BPL", "from_id": "HNZ", "to_id": "BPL", "distance_km": 700, "max_speed_kmph": 130, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_JP_ADI", "from_id": "JP", "to_id": "ADI", "distance_km": 625, "max_speed_kmph": 110, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_ADI_BCT", "from_id": "ADI", "to_id": "BCT", "distance_km": 491, "max_speed_kmph": 120, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_BPL_NGP", "from_id": "BPL", "to_id": "NGP", "distance_km": 354, "max_speed_kmph": 110, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_NGP_SC", "from_id": "NGP", "to_id": "SC", "distance_km": 575, "max_speed_kmph": 110, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_SC_MAS", "from_id": "SC", "to_id": "MAS", "distance_km": 710, "max_speed_kmph": 110, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_SC_SBC", "from_id": "SC", "to_id": "SBC", "distance_km": 575, "max_speed_kmph": 100, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_MAS_SBC", "from_id": "MAS", "to_id": "SBC", "distance_km": 350, "max_speed_kmph": 110, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_BCT_BPL", "from_id": "BCT", "to_id": "BPL", "distance_km": 830, "max_speed_kmph": 110, "track_type": "DOUBLE_ELECTRIFIED"},
+  {"id": "TRK_BCT_NGP", "from_id": "BCT", "to_id": "NGP", "distance_km": 840, "max_speed_kmph": 100, "track_type": "SINGLE"},
+  {"id": "TRK_JP_BPL", "from_id": "JP", "to_id": "BPL", "distance_km": 590, "max_speed_kmph": 100, "track_type": "SINGLE"}
+]
