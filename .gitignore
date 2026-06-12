@@ -1,0 +1,12 @@
+# NEXUS — Git ignore patterns
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+*.log
+.vscode/
+.idea/
+data/models/*.pt
+data/models/*.pkl

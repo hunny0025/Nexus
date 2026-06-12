@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  neo4j:
+    image: neo4j:5.15
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/nexuspassword
+    volumes:
+      - neo4j_data:/data
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - neo4j
+      - mosquitto
+
+volumes:
+  neo4j_data:
