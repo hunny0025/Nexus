@@ -117,7 +117,7 @@ class AutonomousExecutor:
         new_path = route.get("path", [])
 
         if not train_id or not new_path:
-            logger.warning(f"Reroute skipped — missing train_id or path")
+            logger.warning(f"Reroute skipped - missing train_id or path")
             return
 
         next_station = new_path[0] if new_path else None

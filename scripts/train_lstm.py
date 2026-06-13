@@ -77,13 +77,13 @@ def main():
     weights_path = model_dir / "lstm_weights.pt"
 
     print("=" * 60)
-    print("NEXUS — LSTM Autoencoder Training")
+    print("NEXUS - LSTM Autoencoder Training")
     print("=" * 60)
 
     # ------------------------------------------------------------------
     # 1. Generate data
     # ------------------------------------------------------------------
-    print("\n1. Generating synthetic training data …")
+    print("\n1. Generating synthetic training data ...")
     n_normal = 5000
     n_fault = 500
 
@@ -117,7 +117,7 @@ def main():
     # ------------------------------------------------------------------
     # 3. Train
     # ------------------------------------------------------------------
-    print("\n2. Training for 50 epochs …")
+    print("\n2. Training for 50 epochs ...")
     epochs = 50
     t0 = time.time()
 
@@ -143,7 +143,7 @@ def main():
     # ------------------------------------------------------------------
     # 4. Calibrate threshold
     # ------------------------------------------------------------------
-    print("\n3. Calibrating anomaly threshold …")
+    print("\n3. Calibrating anomaly threshold ...")
     model.eval()
     normal_scores = model.compute_anomaly_score(X_val_normal)
     fault_scores = model.compute_anomaly_score(X_val_fault)
@@ -153,8 +153,8 @@ def main():
     threshold = mean_normal + 3.0 * std_normal
     model.threshold = threshold
 
-    print(f"   Normal scores — mean: {mean_normal:.6f}, std: {std_normal:.6f}")
-    print(f"   Threshold (μ + 3σ)  : {threshold:.6f}")
+    print(f"   Normal scores - mean: {mean_normal:.6f}, std: {std_normal:.6f}")
+    print(f"   Threshold (mean + 3*std)  : {threshold:.6f}")
     print(f"\n   Example normal scores : {normal_scores[:5]}")
     print(f"   Example fault scores  : {fault_scores[:5]}")
 
@@ -177,7 +177,7 @@ def main():
         },
         weights_path,
     )
-    print(f"\n✅ Model saved to {weights_path}")
+    print(f"\n[OK] Model saved to {weights_path}")
     print(f"   Threshold: {model.threshold:.6f}")
     print("=" * 60)
 

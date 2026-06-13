@@ -57,7 +57,7 @@ class GeminiExplainer:
                 logger.warning(f"Gemini init failed: {exc}, using templates")
                 self._model = None
         else:
-            logger.info("No Gemini API key — using template explanations")
+            logger.info("No Gemini API key - using template explanations")
 
     async def explain(
         self,

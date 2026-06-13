@@ -176,7 +176,7 @@ class SensorSimulator:
         for st in sensor_types:
             self._active_faults[location_id][st] = 0
         print(
-            f"⚡ Fault injected at {location_id} on sensors: {sensor_types}"
+            f"[FAULT] Injected at {location_id} on sensors: {sensor_types}"
         )
 
     def clear_fault(self, location_id: str):
@@ -192,7 +192,7 @@ class SensorSimulator:
         self._connect()
         self._running = True
         print(
-            f"📡 Sensor simulator started — publishing every {self.interval_sec}s "
+            f"[SIM] Sensor simulator started - publishing every {self.interval_sec}s "
             f"for {len(self.track_ids)} tracks, {len(self.train_ids)} trains"
         )
         try:

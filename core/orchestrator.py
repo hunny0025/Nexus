@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -12,6 +13,43 @@ except ImportError:
     from typing_extensions import TypedDict
 
 logger = logging.getLogger(__name__)
+
+# ── Real ML model singletons (loaded once, used everywhere) ──────────────────
+_tft_model    = None
+_sage_model   = None
+_models_tried = False
+
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TFT_PATH  = os.path.join(BASE, "data", "models", "tft.pt")
+SAGE_PATH = os.path.join(BASE, "data", "models", "graphsage.pt")
+
+
+def _load_models():
+    """Lazy-load trained models (called once on first pipeline invocation)."""
+    global _tft_model, _sage_model, _models_tried
+    if _models_tried:
+        return
+    _models_tried = True
+
+    if os.path.exists(TFT_PATH):
+        try:
+            from core.learning.tft_model import TFTTrainer
+            _tft_model = TFTTrainer.load(TFT_PATH)
+            logger.info("[OK] TFT model loaded")
+        except Exception as e:
+            logger.warning(f"TFT load failed: {e}")
+    else:
+        logger.info("TFT model not found - run scripts/train_models.py first")
+
+    if os.path.exists(SAGE_PATH):
+        try:
+            from core.learning.graphsage_model import GraphSAGETrainer
+            _sage_model = GraphSAGETrainer.load(SAGE_PATH)
+            logger.info("[OK] GraphSAGE model loaded")
+        except Exception as e:
+            logger.warning(f"GraphSAGE load failed: {e}")
+    else:
+        logger.info("GraphSAGE model not found - using DBN fallback")
 
 
 # ---------------------------------------------------------------------------
@@ -36,6 +74,8 @@ class NexusState(TypedDict, total=False):
     high_risk_nodes: list[dict]
     affected_trains: list[str]
     cascade_summary: str
+    tft_forecast: dict          # TFT delay forecast for anomaly location
+    propagation_source: str     # "graphsage+dbn" | "dbn_only"
 
     # Counterfactual layer
     intervention_space: list[dict]
@@ -127,8 +167,49 @@ def anomaly_detection(state: NexusState, components: dict) -> NexusState:
     return state
 
 
+def tft_forecast(state: NexusState, components: dict) -> NexusState:
+    """Run TFT delay forecasting — real ML inference step."""
+    _load_models()
+
+    if _tft_model is None or not state.get("anomaly_confirmed"):
+        state["tft_forecast"] = {}
+        return state
+
+    location = state.get("anomaly_location", "NDLS")
+    readings = state.get("sensor_readings", {})
+
+    # Build recent delay history from sensor readings
+    from datetime import datetime as dt
+    now = dt.now()
+    recent_delays = []
+    for h in range(24, 0, -1):
+        d = readings.get(location, {})
+        delay_approx = d.get("temperature", 45.0) * 0.5   # proxy if no delay key
+        recent_delays.append({
+            "delay_min": d.get("delay_min", delay_approx),
+            "hour": (now.hour - h) % 24,
+            "day_of_week": now.weekday(),
+            "month": now.month,
+            "is_junction": 1,
+        })
+
+    try:
+        forecast = _tft_model.predict(
+            station_id=location,
+            recent_delays=recent_delays,
+        )
+        state["tft_forecast"] = forecast
+        logger.info(f"TFT forecast for {location}: p50={forecast['p50']}")
+    except Exception as e:
+        logger.warning(f"TFT inference failed: {e}")
+        state["tft_forecast"] = {}
+
+    return state
+
+
 def cascade_analysis(state: NexusState, components: dict) -> NexusState:
-    """Run cascade propagation analysis."""
+    """Run cascade propagation analysis — GraphSAGE + DBN fallback."""
+    _load_models()
     cascade_builder = components.get("cascade_builder")
     if cascade_builder is None or not state.get("anomaly_confirmed"):
         state["cascade_map"] = {}
@@ -140,13 +221,52 @@ def cascade_analysis(state: NexusState, components: dict) -> NexusState:
     location = state["anomaly_location"]
     score = state.get("anomaly_score", 0.9)
 
+    # ── GraphSAGE real propagation scores ─────────────────────────────────────
+    graphsage_scores = {}
+    if _sage_model is not None:
+        try:
+            current_delays = {
+                location: score * 180.0,   # convert score to approx minutes
+            }
+            # Add any known delays from sensor readings
+            for sid, sensors in state.get("sensor_readings", {}).items():
+                if sid != location:
+                    current_delays[sid] = sensors.get("delay_min", 0.0)
+
+            graphsage_scores = _sage_model.predict(current_delays)
+            logger.info(f"GraphSAGE scores computed for {len(graphsage_scores)} nodes")
+        except Exception as e:
+            logger.warning(f"GraphSAGE inference failed: {e}")
+
+    # ── DBN cascade builder (always runs, augmented by GraphSAGE) ─────────────
     cascade_map = cascade_builder.compute_cascade(
         fault_location=location,
         initial_probability=min(1.0, score + 0.1),
     )
+
+    # ── Merge: GraphSAGE overrides DBN where available ────────────────────────
+    if graphsage_scores:
+        for node_id, gnn_risk in graphsage_scores.items():
+            if node_id in cascade_map:
+                # Weighted blend: 60% GNN (learned) + 40% DBN (physics)
+                dbn_risk = cascade_map[node_id]
+                cascade_map[node_id] = round(0.6 * gnn_risk + 0.4 * dbn_risk, 4)
+            elif gnn_risk > 0.25:
+                cascade_map[node_id] = round(gnn_risk, 4)
+
+        state["propagation_source"] = "graphsage+dbn"
+    else:
+        state["propagation_source"] = "dbn_only"
+
     high_risk = cascade_builder.get_high_risk_nodes(cascade_map, threshold=0.3)
     trains = cascade_builder.get_expected_trains_affected(high_risk)
     summary = cascade_builder.summarize(cascade_map)
+
+    # Append TFT forecast info if available
+    tft = state.get("tft_forecast", {})
+    if tft.get("p50"):
+        p50_next = tft["p50"][0] if tft["p50"] else 0
+        summary += f" | TFT forecast: +{p50_next:.0f} min delay in 1h (p50)"
 
     state["cascade_map"] = cascade_map
     state["high_risk_nodes"] = high_risk
@@ -343,34 +463,37 @@ def build_nexus_graph(components: dict):
 
         workflow = StateGraph(NexusState)
 
-        # Add nodes
-        workflow.add_node("sensor_fusion", lambda s: sensor_fusion(s, components))
-        workflow.add_node("anomaly_detection", lambda s: anomaly_detection(s, components))
-        workflow.add_node("cascade_analysis", lambda s: cascade_analysis(s, components))
-        workflow.add_node("counterfactual", lambda s: counterfactual(s, components))
-        workflow.add_node("pareto", lambda s: pareto(s, components))
-        workflow.add_node("decision", lambda s: decision(s, components))
+        # Add nodes — tft_forecast runs in parallel with anomaly detection result
+        workflow.add_node("node_sensor_fusion",    lambda s: sensor_fusion(s, components))
+        workflow.add_node("node_anomaly_detection", lambda s: anomaly_detection(s, components))
+        workflow.add_node("node_tft_forecast",      lambda s: tft_forecast(s, components))
+        workflow.add_node("node_cascade_analysis",  lambda s: cascade_analysis(s, components))
+        workflow.add_node("node_counterfactual",    lambda s: counterfactual(s, components))
+        workflow.add_node("node_pareto",            lambda s: pareto(s, components))
+        workflow.add_node("node_decision",          lambda s: decision(s, components))
 
         # Edges
-        workflow.set_entry_point("sensor_fusion")
-        workflow.add_edge("sensor_fusion", "anomaly_detection")
+        workflow.set_entry_point("node_sensor_fusion")
+        workflow.add_edge("node_sensor_fusion", "node_anomaly_detection")
 
-        # Conditional: if anomaly not confirmed → END
+        # Conditional: if anomaly not confirmed -> END
         workflow.add_conditional_edges(
-            "anomaly_detection",
-            lambda s: "cascade_analysis" if s.get("anomaly_confirmed") else END,
+            "node_anomaly_detection",
+            lambda s: "node_tft_forecast" if s.get("anomaly_confirmed") else END,
         )
-        workflow.add_edge("cascade_analysis", "counterfactual")
-        workflow.add_edge("counterfactual", "pareto")
-        workflow.add_edge("pareto", "decision")
-        workflow.add_edge("decision", END)
+        # TFT forecast feeds into cascade analysis (which uses GNN + DBN)
+        workflow.add_edge("node_tft_forecast",     "node_cascade_analysis")
+        workflow.add_edge("node_cascade_analysis", "node_counterfactual")
+        workflow.add_edge("node_counterfactual",   "node_pareto")
+        workflow.add_edge("node_pareto",           "node_decision")
+        workflow.add_edge("node_decision",          END)
 
         compiled = workflow.compile()
-        logger.info("LangGraph pipeline compiled successfully")
+        logger.info("LangGraph pipeline compiled: sensor->detect->TFT->GNN+DBN->MCTS->gate->exec")
         return compiled
 
     except ImportError:
-        logger.warning("langgraph not available — using sequential fallback")
+        logger.warning("langgraph not available - using sequential fallback")
         return _build_fallback_pipeline(components)
 
 
@@ -386,7 +509,8 @@ def _build_fallback_pipeline(components: dict):
             state = anomaly_detection(state, self.components)
             if not state.get("anomaly_confirmed"):
                 return state
-            state = cascade_analysis(state, self.components)
+            state = tft_forecast(state, self.components)      # ← real TFT
+            state = cascade_analysis(state, self.components)  # ← GraphSAGE+DBN
             state = counterfactual(state, self.components)
             state = pareto(state, self.components)
             state = decision(state, self.components)

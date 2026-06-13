@@ -208,7 +208,7 @@ if __name__ == "__main__":
     try:
         initializer = GraphInitializer()
         counts = initializer.seed_all(driver)
-        print("✅ Neo4j graph seeded successfully!")
+        print("[OK] Neo4j graph seeded successfully!")
         for entity, count in counts.items():
             print(f"   {entity}: {count}")
     finally:

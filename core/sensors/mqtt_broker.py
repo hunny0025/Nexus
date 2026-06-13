@@ -79,7 +79,7 @@ class MQTTSubscriber:
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
             client.subscribe(TOPIC_WILDCARD, qos=0)
-            print(f"📥 Subscribed to {TOPIC_WILDCARD}")
+            print(f"[MQTT] Subscribed to {TOPIC_WILDCARD}")
         else:
             print(f"MQTT connection failed with code {rc}")
 

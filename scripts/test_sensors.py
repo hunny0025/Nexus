@@ -39,7 +39,7 @@ def main():
         result = kalman_bank.validate_reading(sensor_id, value)
         readings_log.append(result)
         reading_count["n"] += 1
-        anomaly_flag = " ⚠️  ANOMALY" if result["is_genuine_anomaly"] else ""
+        anomaly_flag = " [!] ANOMALY" if result["is_genuine_anomaly"] else ""
         print(
             f"  [{reading_count['n']:3d}] {sensor_id:35s}  "
             f"raw={value:8.3f}  est={result['estimated_true_value']:8.3f}  "
@@ -63,7 +63,7 @@ def main():
 
     # --- Phase 1: Normal readings ---
     print("\n" + "=" * 80)
-    print("PHASE 1 — Normal sensor readings (collecting ~10 readings)")
+    print("PHASE 1 - Normal sensor readings (collecting ~10 readings)")
     print("=" * 80)
     target = 10
     timeout = time.time() + 15
@@ -73,7 +73,7 @@ def main():
     # --- Phase 2: Inject fault ---
     fault_location = track_ids[0]
     print(f"\n{'=' * 80}")
-    print(f"PHASE 2 — Injecting fault at {fault_location}")
+    print(f"PHASE 2 - Injecting fault at {fault_location}")
     print("=" * 80)
     sim.inject_fault(fault_location, ["vibration", "track_stress"])
 
@@ -95,9 +95,9 @@ def main():
     print(f"  Anomaly rate             : {anomalies / max(total, 1) * 100:.1f}%")
 
     if anomalies > 0:
-        print("\n✅ Fault injection → anomaly detection pipeline WORKING")
+        print("\n[OK] Fault injection -> anomaly detection pipeline WORKING")
     else:
-        print("\n⚠️  No anomalies detected — fault may need more cycles to ramp up")
+        print("\n[WARN] No anomalies detected - fault may need more cycles to ramp up")
 
     # Cleanup
     sim.stop()
