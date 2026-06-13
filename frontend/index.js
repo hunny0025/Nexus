@@ -17,11 +17,14 @@ let state = {
     systemStats: {},
     activeTab: 'dashboard',
     selectedIncidentId: null,
-    wsClientCount: 0
+    wsClientCount: 0,
+    selectedTelemetryTrainId: null,
+    selectedBogieId: 'loco-front'
 };
 
 // Chart Instance
 let learningChart = null;
+let learningChartFull = null;
 
 // Coordinates Projection Constants (mapping India railway stations to 800x550 SVG box)
 const projection = {
@@ -75,6 +78,7 @@ async function loadInitialData() {
         renderNetworkTables();
         renderIncidentsLog();
         initLearningCurveChart();
+        renderTelemetryFleetList();
         
         showToast('success', 'NEXUS Operational', 'Operations dashboard loaded successfully.');
     } catch (err) {
@@ -175,6 +179,8 @@ function connectWebSocket() {
                 renderIncidentsLog();
                 renderNetworkTables();
                 updateLearningChart();
+                renderTelemetryFleetList();
+                updateTelemetryDiagnostics();
                 
                 // If a pending escalation is present, highlight the card
                 const pendingCard = document.getElementById('stat-pending-card');
@@ -185,6 +191,8 @@ function connectWebSocket() {
                 await fetchDemoStatus();
                 await fetchNetworkState();
                 renderRailwayMap();
+                renderTelemetryFleetList();
+                updateTelemetryDiagnostics();
                 
             } else if (data.type === "DEMO_RESET") {
                 showToast('success', 'Demo Reset', 'System state reset and Neo4j database successfully re-seeded.');
@@ -219,16 +227,16 @@ function connectWebSocket() {
 // -------------------------------------------------------------------------
 
 function setupTabNavigation() {
-    const navItems = document.querySelectorAll('.nav-item');
-    navItems.forEach(item => {
+    const navTabs = document.querySelectorAll('.nav-tab');
+    navTabs.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
             
-            // Remove active class from nav items and tab content panels
-            navItems.forEach(n => n.classList.remove('active'));
+            // Remove active class from nav tabs and tab content panels
+            navTabs.forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             
-            // Add active class to clicked nav item
+            // Add active class to clicked nav tab
             item.classList.add('active');
             
             // Add active class to corresponding content panel
@@ -243,6 +251,11 @@ function setupTabNavigation() {
             // Trigger specific page updates
             if (tabId === 'analytics-insights') {
                 setTimeout(updateLearningChart, 100);
+            } else if (tabId === 'train-telemetry') {
+                setTimeout(() => {
+                    renderTelemetryFleetList();
+                    updateTelemetryDiagnostics();
+                }, 100);
             }
         });
     });
@@ -990,19 +1003,18 @@ function showToast(type, title, desc) {
 // -------------------------------------------------------------------------
 
 function initLearningCurveChart() {
-    const ctx = document.getElementById('learningChart').getContext('2d');
+    const validIncidents = (state.incidents || []).filter(i => i != null);
     
     // Prepare data
-    const labels = state.incidents.map(i => i.incident_id.replace('INCIDENT_', '#'));
-    const cascadeAccs = state.incidents.map(i => i.cascade_accuracy * 100);
-    const optimAccs = state.incidents.map(i => i.intervention_accuracy * 100);
+    const labels = validIncidents.map((i, idx) => {
+        const id = i.incident_id;
+        if (id == null) return `#${idx}`;
+        return String(id).replace('INCIDENT_', '#');
+    });
+    const cascadeAccs = validIncidents.map(i => (i.cascade_accuracy || 0) * 100);
+    const optimAccs = validIncidents.map(i => (i.intervention_accuracy || 0) * 100);
     
-    // Destroy existing chart to avoid "Canvas is already in use" errors on reset/reload
-    if (learningChart) {
-        learningChart.destroy();
-    }
-    
-    learningChart = new Chart(ctx, {
+    const getChartConfig = () => ({
         type: 'line',
         data: {
             labels: labels,
@@ -1053,18 +1065,249 @@ function initLearningCurveChart() {
             }
         }
     });
+
+    const canvas = document.getElementById('learningChart');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (learningChart) {
+            learningChart.destroy();
+        }
+        learningChart = new Chart(ctx, getChartConfig());
+    }
+
+    const canvasFull = document.getElementById('learningChartFull');
+    if (canvasFull) {
+        const ctxFull = canvasFull.getContext('2d');
+        if (learningChartFull) {
+            learningChartFull.destroy();
+        }
+        learningChartFull = new Chart(ctxFull, getChartConfig());
+    }
 }
 
 function updateLearningChart() {
-    if (!learningChart) return;
+    const validIncidents = (state.incidents || []).filter(i => i != null);
+    const labels = validIncidents.map((i, idx) => {
+        const id = i.incident_id;
+        if (id == null) return `#${idx}`;
+        return String(id).replace('INCIDENT_', '#');
+    });
+    const cascadeAccs = validIncidents.map(i => (i.cascade_accuracy || 0) * 100);
+    const optimAccs = validIncidents.map(i => (i.intervention_accuracy || 0) * 100);
     
-    const labels = state.incidents.map(i => i.incident_id.replace('INCIDENT_', '#'));
-    const cascadeAccs = state.incidents.map(i => i.cascade_accuracy * 100);
-    const optimAccs = state.incidents.map(i => i.intervention_accuracy * 100);
+    if (learningChart) {
+        learningChart.data.labels = labels;
+        learningChart.data.datasets[0].data = cascadeAccs;
+        learningChart.data.datasets[1].data = optimAccs;
+        learningChart.update();
+    }
     
-    learningChart.data.labels = labels;
-    learningChart.data.datasets[0].data = cascadeAccs;
-    learningChart.data.datasets[1].data = optimAccs;
-    
-    learningChart.update();
+    if (learningChartFull) {
+        learningChartFull.data.labels = labels;
+        learningChartFull.data.datasets[0].data = cascadeAccs;
+        learningChartFull.data.datasets[1].data = optimAccs;
+        learningChartFull.update();
+    }
 }
+
+// -------------------------------------------------------------------------
+// Train Diagnostics & Telemetry Dashboard Tab
+// -------------------------------------------------------------------------
+
+function renderTelemetryFleetList() {
+    const listContainer = document.getElementById('telemetry-fleet-list');
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = '';
+    
+    if (state.trains.length === 0) {
+        listContainer.innerHTML = `<div class="text-muted p-3">No active trains detected.</div>`;
+        return;
+    }
+    
+    state.trains.forEach(t => {
+        const item = document.createElement('div');
+        const isSelected = state.selectedTelemetryTrainId === t.id;
+        item.className = `fleet-item ${isSelected ? 'active' : ''}`;
+        
+        let statusClass = 'ok';
+        if (t.status !== 'ON_TIME') statusClass = 'warning';
+        
+        // Check if there is an active fault on this train
+        const hasFault = state.activeFaults[t.id] !== undefined;
+        if (hasFault) statusClass = 'danger';
+        
+        item.innerHTML = `
+            <div class="fleet-item-head">
+                <span class="fleet-item-id">${t.id}</span>
+                <span class="fleet-item-status ${statusClass}">${hasFault ? 'ANOMALOUS' : t.status}</span>
+            </div>
+            <div class="fleet-item-desc">${t.name} • ${t.speed_kmph} km/h • ${t.passenger_count} pax</div>
+        `;
+        
+        item.addEventListener('click', () => {
+            state.selectedTelemetryTrainId = t.id;
+            renderTelemetryFleetList();
+            updateTelemetryDiagnostics();
+        });
+        
+        listContainer.appendChild(item);
+    });
+    
+    // Set default selected train if none selected
+    if (!state.selectedTelemetryTrainId && state.trains.length > 0) {
+        state.selectedTelemetryTrainId = state.trains[0].id;
+        renderTelemetryFleetList();
+        updateTelemetryDiagnostics();
+    }
+}
+
+function updateTelemetryDiagnostics() {
+    const trainId = state.selectedTelemetryTrainId;
+    if (!trainId) return;
+    
+    const train = state.trains.find(t => t.id === trainId);
+    if (!train) return;
+    
+    document.getElementById('diag-active-train-id').textContent = train.id;
+    const statusEl = document.getElementById('diag-active-train-status');
+    
+    // Check for active faults on the train or track section it is occupying
+    let activeFaultsOnTrain = [];
+    
+    // Direct train fault
+    if (state.activeFaults[train.id]) {
+        activeFaultsOnTrain = activeFaultsOnTrain.concat(state.activeFaults[train.id]);
+    }
+    
+    // Track fault
+    state.tracks.forEach(track => {
+        const isOnTrack = (track.from === train.current_station && track.to === train.next_station) ||
+                          (track.from === train.next_station && track.to === train.current_station);
+        if (isOnTrack && state.activeFaults[track.id]) {
+            activeFaultsOnTrain = activeFaultsOnTrain.concat(state.activeFaults[track.id]);
+        }
+    });
+    
+    const hasFault = activeFaultsOnTrain.length > 0;
+    
+    if (hasFault) {
+        statusEl.className = 'diag-badge danger flashing';
+        statusEl.textContent = 'ANOMALOUS';
+    } else {
+        statusEl.className = 'diag-badge ok';
+        statusEl.textContent = train.status;
+    }
+    
+    // Update SVG wheels rotation class based on speed
+    const svgEl = document.getElementById('train-bogie-svg');
+    if (train.speed_kmph > 0) {
+        svgEl.classList.add('spinning');
+    } else {
+        svgEl.classList.remove('spinning');
+    }
+    
+    // Reset wheel classes
+    const bogies = ['loco-front', 'loco-rear', 'coach1-front', 'coach1-rear', 'coach2-front', 'coach2-rear'];
+    bogies.forEach(bid => {
+        const el = document.getElementById(`bogie-${bid}`);
+        if (el) el.classList.remove('active', 'anomalous');
+    });
+    
+    // Highlight active bogie
+    const activeBogieEl = document.getElementById(`bogie-${state.selectedBogieId}`);
+    if (activeBogieEl) activeBogieEl.classList.add('active');
+    
+    // If there is an active fault, highlight the anomalous bogie (we target coach1-front visually)
+    if (hasFault) {
+        const faultBogieEl = document.getElementById('bogie-coach1-front');
+        if (faultBogieEl) faultBogieEl.classList.add('anomalous');
+    }
+    
+    // Generate data for the active bogie
+    const speed = train.speed_kmph;
+    let baseVibration = (speed / 120) * 0.4 + 0.02;
+    let baseStress = (speed / 120) * 0.8 + 0.05;
+    let baseTemp = (speed / 120) * 30 + 35;
+    let baseVoltage = speed > 0 ? 25.1 : 0.0;
+    
+    // If the selected bogie is the one with the fault:
+    if (hasFault && state.selectedBogieId === 'coach1-front') {
+        activeFaultsOnTrain.forEach(sensor => {
+            if (sensor === 'vibration') baseVibration = 2.45;
+            if (sensor === 'track_stress') baseStress = 4.20;
+            if (sensor === 'temperature') baseTemp = 92.4;
+            if (sensor === 'voltage') baseVoltage = 14.8;
+        });
+    }
+    
+    // Add minor noise
+    if (speed > 0) {
+        baseVibration += Math.random() * 0.02;
+        baseStress += Math.random() * 0.03;
+        baseTemp += Math.random() * 0.8;
+        if (baseVoltage > 0) baseVoltage += Math.random() * 0.1 - 0.05;
+    }
+    
+    // Readout updates
+    document.getElementById('tel-bogie-id').textContent = formatBogieId(state.selectedBogieId);
+    
+    const vibVal = document.getElementById('tel-vibration');
+    const stressVal = document.getElementById('tel-stress');
+    const tempVal = document.getElementById('tel-temp');
+    const voltVal = document.getElementById('tel-voltage');
+    
+    vibVal.textContent = baseVibration.toFixed(2);
+    stressVal.textContent = baseStress.toFixed(2);
+    tempVal.textContent = baseTemp.toFixed(1);
+    voltVal.textContent = baseVoltage.toFixed(1);
+    
+    // Bar animations
+    const vibBar = document.getElementById('tel-bar-vibration');
+    const stressBar = document.getElementById('tel-bar-stress');
+    const tempBar = document.getElementById('tel-bar-temp');
+    const voltBar = document.getElementById('tel-bar-voltage');
+    
+    const vibPct = Math.min(100, (baseVibration / 3.0) * 100);
+    vibBar.style.width = `${vibPct}%`;
+    vibBar.className = `tel-bar-fill ${baseVibration > 1.0 ? 'danger' : (baseVibration > 0.5 ? 'warning' : '')}`;
+    
+    const stressPct = Math.min(100, (baseStress / 5.0) * 100);
+    stressBar.style.width = `${stressPct}%`;
+    stressBar.className = `tel-bar-fill ${baseStress > 2.5 ? 'danger' : (baseStress > 1.5 ? 'warning' : '')}`;
+    
+    const tempPct = Math.min(100, (baseTemp / 120) * 100);
+    tempBar.style.width = `${tempPct}%`;
+    tempBar.className = `tel-bar-fill ${baseTemp > 80 ? 'danger' : (baseTemp > 60 ? 'warning' : '')}`;
+    
+    const voltPct = Math.min(100, (baseVoltage / 30) * 100);
+    voltBar.style.width = `${voltPct}%`;
+    voltBar.className = `tel-bar-fill ${baseVoltage > 0 && baseVoltage < 22 ? 'danger' : ''}`;
+    
+    // Diagnostic log update
+    const logEl = document.getElementById('tel-diagnostics-summary');
+    if (hasFault) {
+        logEl.innerHTML = `<span class="red-text"><strong>🚨 CRITICAL TELEMETRY FAULT DETECTED:</strong> Active anomaly in sensors: ${activeFaultsOnTrain.join(', ')}. LSTM anomaly detection confidence 98.4%. Re-routing or speed hold recommended to prevent track fatigue or wheel set derailment.</span>`;
+    } else {
+        logEl.textContent = `All bogie systems nominal. Wheel temperature (${baseTemp.toFixed(1)}°C) and lateral vibration coefficient (${baseVibration.toFixed(2)} mm/s²) are well within safe margins for operational speed of ${speed} km/h.`;
+    }
+}
+
+function formatBogieId(bid) {
+    switch (bid) {
+        case 'loco-front': return 'Locomotive (Front bogie)';
+        case 'loco-rear': return 'Locomotive (Rear bogie)';
+        case 'coach1-front': return 'Coach 1 (Front bogie)';
+        case 'coach1-rear': return 'Coach 1 (Rear bogie)';
+        case 'coach2-front': return 'Coach 2 (Front bogie)';
+        case 'coach2-rear': return 'Coach 2 (Rear bogie)';
+        default: return bid;
+    }
+}
+
+function selectBogie(bogieId) {
+    state.selectedBogieId = bogieId;
+    updateTelemetryDiagnostics();
+}
+
+window.selectBogie = selectBogie;
