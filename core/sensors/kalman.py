@@ -122,7 +122,24 @@ class KalmanFilterBank:
         self, sensor_id: str, initial_value: float = 0.0
     ) -> SensorKalmanFilter:
         if sensor_id not in self._filters:
-            Q, R = self._configs.get(sensor_id, (self.default_Q, self.default_R))
+            # Parse sensor type
+            stype = ""
+            for suffix in ["vibration", "track_stress", "temperature", "brake_pressure", "wheel_impact"]:
+                if sensor_id.endswith(f"_{suffix}"):
+                    stype = suffix
+                    break
+            
+            # Custom default variance for each sensor type
+            sensor_baselines = {
+                "vibration": (1e-4, 0.0064),
+                "track_stress": (1.0, 144.0),
+                "temperature": (0.1, 9.0),
+                "brake_pressure": (1e-2, 0.16),
+                "wheel_impact": (1e-3, 0.0225),
+            }
+            default_q, default_r = sensor_baselines.get(stype, (self.default_Q, self.default_R))
+            
+            Q, R = self._configs.get(sensor_id, (default_q, default_r))
             self._filters[sensor_id] = SensorKalmanFilter(
                 process_variance=Q,
                 measurement_variance=R,

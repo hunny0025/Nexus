@@ -60,11 +60,16 @@ class GraphSyncAgent:
             avg_value = sum(recent) / len(recent)
 
             # Parse location from sensor_id (format: location_sensortype)
-            parts = sensor_id.rsplit("_", 1)
-            if len(parts) != 2:
+            location = None
+            sensor_type = None
+            for suffix in ["vibration", "track_stress", "temperature", "brake_pressure", "wheel_impact"]:
+                if sensor_id.endswith(f"_{suffix}"):
+                    location = sensor_id[:-(len(suffix) + 1)]
+                    sensor_type = suffix
+                    break
+
+            if not location or not sensor_type:
                 continue
-            location = parts[0]
-            sensor_type = parts[1]
 
             if location not in location_readings:
                 location_readings[location] = {}
@@ -93,7 +98,7 @@ class GraphSyncAgent:
             {sensor_type: averaged_value}
         """
         vibration = sensor_readings.get("vibration", 0.5)
-        stress = sensor_readings.get("stress", 100.0)
+        stress = sensor_readings.get("track_stress", 100.0)
 
         # Derive health probabilities from sensor values
         # Higher vibration / stress → more likely degraded/failed
@@ -139,7 +144,7 @@ class GraphSyncAgent:
 
     def _update_train_health(self, train_id: str, sensor_readings: dict[str, float]):
         """Update train properties based on sensor readings."""
-        brake = sensor_readings.get("pressure", 6.0)
+        brake = sensor_readings.get("brake_pressure", 6.0)
         temp = sensor_readings.get("temperature", 45.0)
 
         status = "ON_TIME"

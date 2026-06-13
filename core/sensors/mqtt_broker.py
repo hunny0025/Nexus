@@ -55,6 +55,7 @@ class MQTTSubscriber:
         self._client.on_message = self._on_message
 
         self._lock = threading.Lock()
+        self.connected = False
 
     # ------------------------------------------------------------------
     # Callback registration
@@ -127,6 +128,25 @@ class MQTTSubscriber:
         with self._lock:
             return list(self._buffers.keys())
 
+    def put_reading(self, sensor_id: str, value: float, location: str, timestamp: str):
+        """Manually insert a reading (used when MQTT broker is unavailable)."""
+        payload = {
+            "sensor_id": sensor_id,
+            "value": value,
+            "timestamp": timestamp,
+            "location": location,
+        }
+        with self._lock:
+            self._buffers[sensor_id].append(value)
+            self._message_buffers[sensor_id].append(payload)
+
+        # Dispatch to all registered callbacks
+        for cb in self._callbacks:
+            try:
+                cb(sensor_id, value, location, timestamp)
+            except Exception as exc:
+                print(f"Callback error: {exc}")
+
     def start(self, blocking: bool = True):
         """Connect and start listening.
 
@@ -136,12 +156,31 @@ class MQTTSubscriber:
             If True, blocks the current thread. If False, runs the
             network loop in a background thread.
         """
-        self._client.connect(self.broker_host, self.broker_port, keepalive=60)
-        if blocking:
-            self._client.loop_forever()
-        else:
-            self._client.loop_start()
+        try:
+            self._client.connect(self.broker_host, self.broker_port, keepalive=60)
+            self.connected = True
+            if blocking:
+                self._client.loop_forever()
+            else:
+                self._client.loop_start()
+        except Exception as exc:
+            self.connected = False
+            print(f"[MQTT] Warning: Failed to connect to broker at {self.broker_host}:{self.broker_port} ({exc}). Running in offline/mock fallback mode.")
+            if blocking:
+                import time
+                while True:
+                    time.sleep(1)
+
+    def reset(self):
+        """Clear all rolling buffers."""
+        with self._lock:
+            self._buffers.clear()
+            self._message_buffers.clear()
 
     def stop(self):
-        self._client.loop_stop()
-        self._client.disconnect()
+        if self.connected:
+            try:
+                self._client.loop_stop()
+                self._client.disconnect()
+            except Exception:
+                pass

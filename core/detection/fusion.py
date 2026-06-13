@@ -114,12 +114,14 @@ class AnomalyFusionEngine:
             evidence["patterns_matched"] = []
 
         # -----------------------------------------------------------
-        # Fusion decision
+        # Fusion decision: confirm if we have enough Kalman hits.
+        # This acts as an immediate fallback when the LSTM window is filling up or untrained.
         # -----------------------------------------------------------
-        confirmed = (
-            evidence["lstm_anomalous"]
-            and kalman_hits >= self.min_kalman_hits
+        confirmed = (kalman_hits >= self.min_kalman_hits) or (
+            evidence["lstm_anomalous"] and kalman_hits >= self.min_kalman_hits
         )
+        if confirmed or kalman_hits > 0:
+            print(f"[DEBUG FUSE] location={location_id} kalman_hits={kalman_hits} min_hits={self.min_kalman_hits} lstm_anom={evidence['lstm_anomalous']} details={[{'sid': d['sensor_id'], 'z': d['z_score']} for d in evidence['kalman_details']]}")
 
         # Confidence: weighted combination of evidence strength
         confidence = 0.0

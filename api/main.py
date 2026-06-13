@@ -10,6 +10,8 @@ import torch
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List
 
@@ -63,6 +65,9 @@ app.include_router(incidents.router)
 app.include_router(interventions.router)
 app.include_router(analytics.router)
 
+# Mount the static directory
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
 # WebSocket connection manager
 ws_manager = WebSocketManager()
 
@@ -113,10 +118,18 @@ async def reset_demo(request: Request):
     if simulator is not None:
         simulator._active_faults.clear()
         
-    # 2. Reset LSTM pipeline
+    # 2. Reset LSTM pipeline, Kalman filter bank, and subscriber buffers
     lstm_pipeline = getattr(request.app.state, "lstm_detector", None)
     if lstm_pipeline is not None:
         lstm_pipeline.reset()
+        
+    kalman_bank = getattr(request.app.state, "kalman_bank", None)
+    if kalman_bank is not None:
+        kalman_bank.reset()
+        
+    subscriber = getattr(request.app.state, "subscriber", None)
+    if subscriber is not None:
+        subscriber.reset()
         
     # 3. Reseed Neo4j
     driver = getattr(request.app.state, "neo4j_driver", None)
@@ -153,7 +166,7 @@ async def demo_status(request: Request):
 
 @app.get("/")
 async def root():
-    return {"service": "NEXUS", "status": "operational", "version": "0.1.0"}
+    return FileResponse("frontend/index.html")
 
 @app.get("/health")
 async def health_check():
@@ -176,18 +189,29 @@ async def orchestrator_loop(app_instance):
                 for sid in sensor_ids:
                     recent = subscriber.get_recent(sid, n=1)
                     if recent:
-                        parts = sid.rsplit("_", 1)
-                        if len(parts) == 2:
-                            loc, stype = parts
+                        loc = None
+                        stype = None
+                        for suffix in ["vibration", "track_stress", "temperature", "brake_pressure", "wheel_impact"]:
+                            if sid.endswith(f"_{suffix}"):
+                                loc = sid[:-(len(suffix) + 1)]
+                                stype = suffix
+                                break
+                        
+                        if loc and stype:
                             if loc not in readings:
                                 readings[loc] = {}
                             readings[loc][stype] = recent[0]
                 
                 if readings:
+                    logger.info(f"Orchestrator loop invoking pipeline with {len(readings)} active locations...")
                     state = {"sensor_readings": readings}
-                    # Run orchestrator in executor pool to prevent blocking event loop
-                    res = await asyncio.to_thread(orchestrator.invoke, state)
+                    # Run orchestrator graph
+                    if hasattr(orchestrator, "ainvoke"):
+                        res = await orchestrator.ainvoke(state)
+                    else:
+                        res = await asyncio.to_thread(orchestrator.invoke, state)
                     
+                    logger.info(f"Orchestrator result: confirmed={res.get('anomaly_confirmed')}, location={res.get('anomaly_location')}, score={res.get('anomaly_score')}")
                     if res.get("anomaly_confirmed"):
                         # Run the execution node logic (which is async and executes intervention or escalates)
                         from core.orchestrator import execution
@@ -220,6 +244,316 @@ async def orchestrator_loop(app_instance):
             
         await asyncio.sleep(3)
 
+class MockNeo4jRecord:
+    def __init__(self, data_dict):
+        self._data = data_dict
+    def __getitem__(self, key):
+        return self._data.get(key)
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+    def keys(self):
+        return self._data.keys()
+    def values(self):
+        return self._data.values()
+    def items(self):
+        return self._data.items()
+    def __repr__(self):
+        return repr(self._data)
+
+class MockNeo4jResult:
+    def __init__(self, records):
+        self._records = [MockNeo4jRecord(r) for r in records]
+    def __iter__(self):
+        return iter(self._records)
+    def single(self):
+        return self._records[0] if self._records else None
+
+class MockNeo4jTransaction:
+    def __init__(self, session):
+        self.session = session
+    def run(self, query, **parameters):
+        return self.session.run(query, **parameters)
+
+class MockNeo4jSession:
+    def __init__(self, driver):
+        self.driver = driver
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+    def execute_write(self, tx_func, *args, **kwargs):
+        tx = MockNeo4jTransaction(self)
+        return tx_func(tx, *args, **kwargs)
+    def execute_read(self, tx_func, *args, **kwargs):
+        tx = MockNeo4jTransaction(self)
+        return tx_func(tx, *args, **kwargs)
+    def run(self, query, **parameters):
+        query_norm = " ".join(query.split()).upper()
+        
+        # 1. Clear database
+        if "DETACH DELETE" in query_norm or "CLEAR" in query_norm:
+            self.driver.stations = []
+            self.driver.tracks = []
+            self.driver.trains = []
+            self.driver.signals = []
+            self.driver.crews = []
+            return MockNeo4jResult([])
+            
+        # 2. Count nodes (seeding verification)
+        elif "RETURN COUNT(N)" in query_norm or "RETURN COUNT(S)" in query_norm:
+            total_count = len(self.driver.stations) + len(self.driver.tracks) + len(self.driver.trains)
+            return MockNeo4jResult([{"c": total_count}])
+            
+        # 3. Create/Seed Station
+        elif "MERGE (S:STATION" in query_norm:
+            station_id = parameters.get("id")
+            exists = any(s["id"] == station_id for s in self.driver.stations)
+            if not exists:
+                self.driver.stations.append(parameters)
+            return MockNeo4jResult([])
+            
+        # 4. Create/Seed Track section
+        elif "MERGE (TS:TRACKSECTION" in query_norm:
+            track_id = parameters.get("id")
+            exists = any(t["id"] == track_id for t in self.driver.tracks)
+            if not exists:
+                track_data = {**parameters, "from": parameters.get("from_id"), "to": parameters.get("to_id")}
+                self.driver.tracks.append(track_data)
+            return MockNeo4jResult([])
+            
+        # 5. Create/Seed Train
+        elif "MERGE (T:TRAIN" in query_norm:
+            train_id = parameters.get("id")
+            exists = any(t["id"] == train_id for t in self.driver.trains)
+            if not exists:
+                train_data = {
+                    "id": parameters.get("id"),
+                    "name": parameters.get("name"),
+                    "speed_kmph": parameters.get("speed_kmph", 0.0),
+                    "passenger_count": parameters.get("passenger_count", 0),
+                    "status": parameters.get("status", "ON_TIME"),
+                    "current_station": "",
+                    "next_station": ""
+                }
+                self.driver.trains.append(train_data)
+            return MockNeo4jResult([])
+            
+        # 6. Seed Signals & Crews
+        elif "MERGE (SIG:SIGNAL" in query_norm:
+            sig_id = parameters.get("id")
+            exists = any(s["id"] == sig_id for s in self.driver.signals)
+            if not exists:
+                self.driver.signals.append(parameters)
+            return MockNeo4jResult([])
+            
+        elif "MERGE (C:MAINTENANCECREW" in query_norm:
+            crew_id = parameters.get("id")
+            exists = any(c["id"] == crew_id for c in self.driver.crews)
+            if not exists:
+                self.driver.crews.append(parameters)
+            return MockNeo4jResult([])
+            
+        # 7. Occupies / Next Station Seeding relationship updates
+        elif "OCCUPIES" in query_norm and ("MERGE" in query_norm or "SET" in query_norm or "CREATE" in query_norm):
+            train_id = parameters.get("train_id")
+            station_id = parameters.get("station_id") or parameters.get("current_station")
+            for t in self.driver.trains:
+                if str(t["id"]) == str(train_id):
+                    if station_id:
+                        t["current_station"] = station_id
+                    break
+            return MockNeo4jResult([])
+            
+        elif ("NEXT_STATION" in query_norm or "HEADING_TO" in query_norm) and ("MERGE" in query_norm or "SET" in query_norm or "CREATE" in query_norm):
+            train_id = parameters.get("train_id")
+            next_station_id = parameters.get("next_station_id") or parameters.get("next_station")
+            for t in self.driver.trains:
+                if str(t["id"]) == str(train_id):
+                    if next_station_id:
+                        t["next_station"] = next_station_id
+                    # Update status
+                    if "status" in parameters:
+                        if "SENSOR_STATUS" in query_norm:
+                            t["sensor_status"] = parameters["status"]
+                        else:
+                            t["status"] = parameters["status"]
+                    elif "REROUTED" in query_norm:
+                        t["status"] = "REROUTED"
+                    elif "HELD" in query_norm:
+                        t["status"] = "HELD"
+                    break
+            return MockNeo4jResult([])
+            
+        # 8. Query all Stations
+        elif "MATCH (S:STATION) RETURN S" in query_norm:
+            return MockNeo4jResult([{"s": s} for s in self.driver.stations])
+            
+        # 9. Query all Tracks
+        elif "MATCH (A:STATION)-[R:TRACK]->(B:STATION) RETURN A, R, B" in query_norm:
+            records = []
+            for t in self.driver.tracks:
+                records.append({
+                    "r": t,
+                    "a": {"id": t["from"]},
+                    "b": {"id": t["to"]}
+                })
+            return MockNeo4jResult(records)
+            
+        # 10. Query all Trains
+        elif "MATCH (T:TRAIN) RETURN T" in query_norm:
+            return MockNeo4jResult([{"t": t} for t in self.driver.trains])
+            
+        # 11. Query all Signals
+        elif "MATCH (SIG:SIGNAL) RETURN SIG" in query_norm:
+            return MockNeo4jResult([{"sig": s} for s in self.driver.signals])
+            
+        # Shortest alternate route query
+        elif "SHORTESTPATH" in query_norm:
+            train_id = parameters.get("train_id")
+            blocked_node = parameters.get("blocked_node")
+            
+            # Find start and dest stations for this train
+            start = ""
+            dest = ""
+            for t in self.driver.trains:
+                if str(t["id"]) == str(train_id):
+                    start = t.get("current_station", "")
+                    dest = t.get("next_station", "")
+                    break
+            
+            if not start or not dest:
+                # Fallback to general stations from the train or network
+                start = start or "NDLS"
+                dest = dest or "CNB"
+                
+            from collections import defaultdict
+            # Build undirected graph adjacency list from self.driver.tracks
+            adj = defaultdict(list)
+            for t in self.driver.tracks:
+                adj[t["from"]].append((t["to"], t.get("distance_km", 100)))
+                adj[t["to"]].append((t["from"], t.get("distance_km", 100)))
+                
+            paths = []
+            def dfs(curr, target, visited, current_path, current_dist):
+                if len(paths) >= 3:
+                    return
+                if curr == target:
+                    paths.append((list(current_path), current_dist))
+                    return
+                for neighbor, dist in adj[curr]:
+                    if neighbor == blocked_node:
+                        continue
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        current_path.append(neighbor)
+                        dfs(neighbor, target, visited, current_path, current_dist + dist)
+                        current_path.pop()
+                        visited.remove(neighbor)
+            
+            visited = {start}
+            dfs(start, dest, visited, [start], 0)
+            
+            # If no path found (or DFS/BFS failed), return a synthetic fallback path
+            if not paths:
+                synthetic_path = [start, "ALT_STATION", dest]
+                if blocked_node in synthetic_path:
+                    synthetic_path = [start, dest]
+                paths = [(synthetic_path, 300)]
+                
+            records = []
+            for path, dist in paths:
+                records.append({
+                    "route_path": path,
+                    "total_distance": dist
+                })
+            return MockNeo4jResult(records)
+            
+        # 12. Live trains positions query or expected trains affected query
+        elif "OCCUPIES" in query_norm and "RETURN" in query_norm:
+            if "TRAIN_IDS" in query_norm:
+                node_ids = parameters.get("node_ids", [])
+                affected_tids = []
+                for t in self.driver.trains:
+                    curr = t.get("current_station", "")
+                    nxt = t.get("next_station", "")
+                    if curr in node_ids or nxt in node_ids:
+                        affected_tids.append(t["id"])
+                return MockNeo4jResult([{"train_ids": affected_tids}])
+            else:
+                records = []
+                for t in self.driver.trains:
+                    records.append({
+                        "id": t["id"],
+                        "name": t["name"],
+                        "status": t.get("status", "ON_TIME"),
+                        "speed": t.get("speed_kmph", 0.0),
+                        "passengers": t.get("passenger_count", 500),
+                        "current_station": t.get("current_station", ""),
+                        "current_station_name": t.get("current_station", ""),
+                        "next_station": t.get("next_station", ""),
+                        "next_station_name": t.get("next_station", "")
+                    })
+                return MockNeo4jResult(records)
+            
+        # 13. Train updates (both position updates and sync agent updates)
+        elif "MATCH (T:TRAIN {ID: $TRAIN_ID})" in query_norm or "UPDATE-TRAIN" in query_norm:
+            train_id = parameters.get("train_id")
+            for t in self.driver.trains:
+                if str(t["id"]) == str(train_id):
+                    # Only update fields that are provided in parameters, do NOT set missing parameters to None!
+                    if "current_station" in parameters:
+                        t["current_station"] = parameters["current_station"]
+                    if "next_station" in parameters:
+                        t["next_station"] = parameters["next_station"]
+                    if "speed" in parameters:
+                        t["speed_kmph"] = parameters["speed"]
+                    if "speed_kmph" in parameters:
+                        t["speed_kmph"] = parameters["speed_kmph"]
+                    # Update status
+                    if "status" in parameters:
+                        if "SENSOR_STATUS" in query_norm:
+                            t["sensor_status"] = parameters["status"]
+                        else:
+                            t["status"] = parameters["status"]
+                    elif "REROUTED" in query_norm:
+                        t["status"] = "REROUTED"
+                    elif "HELD" in query_norm:
+                        t["status"] = "HELD"
+                    if "brake" in parameters:
+                        t["last_brake_pressure"] = parameters["brake"]
+                    if "temp" in parameters:
+                        t["last_temperature"] = parameters["temp"]
+                    break
+            return MockNeo4jResult([{"id": train_id}])
+            
+        # Default fallback
+        return MockNeo4jResult([])
+
+class MockNeo4jDriver:
+    def __init__(self):
+        data_dir = Path(__file__).resolve().parent.parent / "data" / "network"
+        self.stations = []
+        if (data_dir / "stations.json").exists():
+            with open(data_dir / "stations.json", "r", encoding="utf-8") as f:
+                self.stations = json.load(f)
+        self.tracks = []
+        if (data_dir / "tracks.json").exists():
+            with open(data_dir / "tracks.json", "r", encoding="utf-8") as f:
+                raw_tracks = json.load(f)
+                self.tracks = [{**t, "from": t["from_id"], "to": t["to_id"]} for t in raw_tracks]
+        self.trains = []
+        if (data_dir / "trains.json").exists():
+            with open(data_dir / "trains.json", "r", encoding="utf-8") as f:
+                self.trains = json.load(f)
+        self.signals = []
+        self.crews = []
+    def verify_connectivity(self):
+        pass
+    def session(self):
+        return MockNeo4jSession(self)
+    def close(self):
+        pass
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize all core components and dependency graph on application startup."""
@@ -248,7 +582,7 @@ async def startup_event():
                 logger.info("Database seed complete.")
     except Exception as e:
         logger.error(f"Neo4j connection failure: {e}. Running with mock driver fallback.")
-        app.state.neo4j_driver = None
+        app.state.neo4j_driver = MockNeo4jDriver()
         
     # 3. Kalman Filter Bank
     kalman_bank = KalmanFilterBank(anomaly_threshold=3.0)
@@ -352,7 +686,13 @@ async def startup_event():
         app.state.subscriber = None
         
     # 12. Load Track/Train IDs for simulator
-    track_ids = [e[0] for e in edges]
+    track_ids = []
+    if tracks_path.exists():
+        try:
+            with open(tracks_path, "r", encoding="utf-8") as f:
+                track_ids = [t["id"] for t in json.load(f)]
+        except Exception as e:
+            logger.error(f"Failed to parse tracks.json: {e}")
     trains_path = Path(__file__).resolve().parent.parent / "data" / "network" / "trains.json"
     train_ids = []
     if trains_path.exists():
@@ -368,7 +708,8 @@ async def startup_event():
             broker_host=mqtt_broker,
             track_ids=track_ids,
             train_ids=train_ids,
-            interval_sec=2.0
+            interval_sec=2.0,
+            local_subscriber=app.state.subscriber
         )
         sim_thread = threading.Thread(target=simulator.start, daemon=True)
         sim_thread.start()

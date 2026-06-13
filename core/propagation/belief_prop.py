@@ -58,22 +58,34 @@ class BeliefPropagationEngine:
         """
         time_labels = [f"{(i + 1) * 15}min" for i in range(time_steps)]
 
+        # Resolve track IDs (e.g. TRK_NDLS_CNB) to station nodes
+        resolved_nodes = []
+        if fault_node in self.nodes:
+            resolved_nodes = [fault_node]
+        elif fault_node.startswith("TRK_"):
+            parts = fault_node.split("_")
+            resolved_nodes = [p for p in parts[1:] if p in self.nodes]
+
+        if not resolved_nodes and self.nodes:
+            resolved_nodes = [list(self.nodes)[0]]
+
         # Initialize result map
         result: dict[str, dict[str, float]] = {
             node: {label: 0.0 for label in time_labels}
             for node in self.nodes
         }
 
-        # Fault node retains high probability with temporal decay
+        # Fault nodes retain high probability with temporal decay
         for step in range(time_steps):
             decay = self.decay_per_step ** step
-            result[fault_node][time_labels[step]] = round(
-                fault_probability * (1.0 - (1.0 - decay) * 0.3), 4
-            )
+            for r_node in resolved_nodes:
+                result[r_node][time_labels[step]] = round(
+                    fault_probability * (1.0 - (1.0 - decay) * 0.3), 4
+                )
 
         # BFS propagation at each time step
         # Track cumulative reach: node → max probability at each step
-        current_frontier: dict[str, float] = {fault_node: fault_probability}
+        current_frontier: dict[str, float] = {r_node: fault_probability for r_node in resolved_nodes}
 
         for step in range(time_steps):
             label = time_labels[step]

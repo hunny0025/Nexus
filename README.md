@@ -61,19 +61,23 @@ NEXUS is an autonomous, real-time railway intelligence platform designed for pre
 ## 🛠️ Tech Stack & Workspace Setup
 
 * **Core**: Python 3.10+, FastAPI (Backend), WebSockets (Real-time telemetry & alerts)
-* **Databases**: Neo4j (Graph Network Layer), SQLite/Local JSON (Incidents & continuous learning log)
-* **Message Broker**: Eclipse Mosquitto (MQTT Telemetry ingestion)
+* **Frontend**: Vanilla HTML5, CSS3 (glassmorphic styling, responsive layout), JavaScript (ES6+, Chart.js, SVG-based real-time network topology)
+* **Databases**: Neo4j (Graph Network Layer), with automatic **in-memory mock graph DB fallback** if offline. SQLite/Local JSON (Incidents & continuous learning log)
+* **Message Broker**: Eclipse Mosquitto (MQTT Telemetry ingestion), with automatic **local memory queue fallback** if offline.
 * **ML/AI Logic**: PyTorch (LSTM AutoEncoder), NetworkX (Probabilistic belief propagation), pgmpy (Dynamic Bayesian Networks), PyMoo/MCTS (Reasoning)
-* **Explainability**: Google Gemini API (`gemini-pro`)
+* **Explainability**: Google Gemini API (`gemini-pro`) with template-based rule fallbacks if no API key is provided.
 
 ---
 
 ## ⚡ Quick Start Instructions
 
-Follow these exact steps in order in your terminal:
+NEXUS includes a fully-functional, responsive **Web Dashboard** served directly by the FastAPI backend.
 
-### 1. Prerequisite Infrastructure
-Ensure Docker is installed and running. Start the Neo4j and Mosquitto MQTT broker containers:
+### 🔌 Zero-Dependency Fallback Mode
+If you do not have Docker, Neo4j, or Mosquitto installed, **NEXUS will run anyway** by gracefully falling back to a mock database and an in-memory subscription loop. You can skip Step 1 and proceed straight to Step 2.
+
+### 1. Prerequisite Infrastructure (Optional but Recommended)
+If utilizing the real database and broker, ensure Docker is running and start the containers:
 ```bash
 docker-compose up -d
 ```
@@ -109,6 +113,7 @@ Start uvicorn which runs the FastAPI endpoints, WebSocket endpoint, MQTT Subscri
 ```bash
 python scripts/run_all.py
 ```
+* **Web Dashboard**: Access the frontend directly at `http://localhost:8000/` in your browser to view the railway network topology, live telemetry, and pending alerts.
 
 ### 6. Run the End-to-End Demo Scenario
 In a separate terminal, trigger the automated end-to-end demo script to test the entire pipeline:

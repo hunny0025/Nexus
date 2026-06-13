@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS | Autonomous Railway Intelligence Platform</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="/static/index.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-train-subway logo-pulse"></i>
+                </div>
+                <div class="logo-text">
+                    <span class="logo-title">NEXUS</span>
+                    <span class="logo-subtitle">INTELLIGENCE PLATFORM</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-tab="dashboard">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Operations Room</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="network-explorer">
+                    <i class="fa-solid fa-network-wired"></i>
+                    <span>Network Topology</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="incidents-log">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Incident History</span>
+                </a>
+                <a href="#" class="nav-item" data-tab="analytics-insights">
+                    <i class="fa-solid fa-brain"></i>
+                    <span>AI Insights</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="connection-status connected" id="ws-status">
+                    <span class="pulse-dot"></span>
+                    <span id="ws-status-text">Websocket Live</span>
+                </div>
+                <div class="version-tag">v0.1.0 (Beta)</div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Dashboard Header -->
+            <header class="main-header">
+                <div class="header-title-area">
+                    <h1>Real-Time Operations Dashboard</h1>
+                    <p class="subtitle">Predictive Disruption Management & Closed-Loop Autonomous Mitigation</p>
+                </div>
+                
+                <div class="header-actions">
+                    <!-- Quick Demo Control Panel -->
+                    <div class="demo-quick-actions">
+                        <button class="btn btn-secondary" id="btn-reset-demo" title="Clear faults and reset database">
+                            <i class="fa-solid fa-rotate-right"></i> Reset Demo
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Overview Stats -->
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon purple">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="stat-data">
+                        <span class="stat-label">Autonomous Mitigation Rate</span>
+                        <span class="stat-value" id="stat-auto-rate">0.0%</span>
+                        <span class="stat-trend positive"><i class="fa-solid fa-shield-halved"></i> Closed-loop</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                    <div class="stat-data">
+                        <span class="stat-label">Avg. Delay Reduction</span>
+                        <span class="stat-value" id="stat-delay-reduction">0.0%</span>
+                        <span class="stat-trend positive"><i class="fa-solid fa-arrow-down"></i> Predictive</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red">
+                        <i class="fa-solid fa-skull-crossbones"></i>
+                    </div>
+                    <div class="stat-data">
+                        <span class="stat-label">Disruptions Handled</span>
+                        <span class="stat-value" id="stat-incidents-count">0</span>
+                        <span class="stat-trend neutral"><i class="fa-solid fa-clock-rotate-left"></i> All time</span>
+                    </div>
+                </div>
+                <div class="stat-card urgent-alert" id="stat-pending-card">
+                    <div class="stat-icon yellow flashing">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                    </div>
+                    <div class="stat-data">
+                        <span class="stat-label">Pending Escalations</span>
+                        <span class="stat-value" id="stat-pending-count">0</span>
+                        <span class="stat-trend warning-text" id="stat-pending-label">Human-in-the-Loop</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Grid Content for Dashboard Tab -->
+            <div class="dashboard-grid tab-content active" id="tab-dashboard">
+                
+                <!-- Left Grid: Topology Map -->
+                <div class="grid-col-8">
+                    <div class="card map-card">
+                        <div class="card-header">
+                            <div class="header-title">
+                                <i class="fa-solid fa-map"></i>
+                                <h3>Active Railway Grid & Telemetry State</h3>
+                            </div>
+                            <div class="map-legend">
+                                <span class="legend-item"><span class="legend-dot station"></span>Station</span>
+                                <span class="legend-item"><span class="legend-dot junction"></span>Junction</span>
+                                <span class="legend-item"><span class="legend-dot normal-track"></span>Track</span>
+                                <span class="legend-item"><span class="legend-dot anomalous-track"></span>Disrupted</span>
+                                <span class="legend-item"><span class="legend-dot train"></span>Train</span>
+                            </div>
+                        </div>
+                        <div class="card-body map-container-wrapper">
+                            <!-- SVG Railway Grid -->
+                            <div class="svg-map-container" id="map-parent">
+                                <svg id="railway-svg" viewBox="0 0 800 550" preserveAspectRatio="xMidYMid meet">
+                                    <!-- Map Grid Background -->
+                                    <defs>
+                                        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255, 255, 255, 0.03)" stroke-width="1" />
+                                        </pattern>
+                                        <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+                                            <stop offset="0%" stop-color="rgba(168, 85, 247, 0.15)" />
+                                            <stop offset="100%" stop-color="rgba(168, 85, 247, 0)" />
+                                        </radialGradient>
+                                        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                                            <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.5"/>
+                                        </filter>
+                                    </defs>
+                                    <rect width="100%" height="100%" fill="url(#grid)" />
+                                    
+                                    <!-- Dynamic elements group -->
+                                    <g id="svg-tracks"></g>
+                                    <g id="svg-stations"></g>
+                                    <g id="svg-trains"></g>
+                                </svg>
+                                
+                                <!-- Hover tooltip -->
+                                <div class="map-tooltip" id="map-tooltip" style="opacity: 0;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Grid: Live Feed & Simulator Control -->
+                <div class="grid-col-4">
+                    <!-- Pending Escalations Box -->
+                    <div class="card intervention-card" id="pending-escalations-card" style="display: none;">
+                        <div class="card-header bg-warning">
+                            <div class="header-title">
+                                <i class="fa-solid fa-triangle-exclamation flashing-orange"></i>
+                                <h3 class="warning-title">OPERATOR DECISION REQUIRED</h3>
+                            </div>
+                        </div>
+                        <div class="card-body bg-dark-tint" id="pending-brief-container">
+                            <!-- Pending interventions injected here by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Simulator Fault Ingestion Panel -->
+                    <div class="card simulator-card">
+                        <div class="card-header">
+                            <div class="header-title">
+                                <i class="fa-solid fa-gamepad"></i>
+                                <h3>Simulator Fault Injection Panel</h3>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p class="panel-description">Simulate hardware anomalies and monitor propagation in real time.</p>
+                            
+                            <form id="fault-injection-form">
+                                <div class="form-group">
+                                    <label for="inject-location">Target Location / Asset</label>
+                                    <select class="form-control" id="inject-location" required>
+                                        <option value="">-- Select Track Section --</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Select Anomaly Sensors</label>
+                                    <div class="checkbox-group">
+                                        <label class="checkbox-item">
+                                            <input type="checkbox" name="sensor_type" value="vibration" checked>
+                                            <span>Vibration Sensor</span>
+                                        </label>
+                                        <label class="checkbox-item">
+                                            <input type="checkbox" name="sensor_type" value="track_stress" checked>
+                                            <span>Track Stress Gauge</span>
+                                        </label>
+                                        <label class="checkbox-item">
+                                            <input type="checkbox" name="sensor_type" value="temperature">
+                                            <span>Thermal Probe</span>
+                                        </label>
+                                        <label class="checkbox-item">
+                                            <input type="checkbox" name="sensor_type" value="voltage">
+                                            <span>Signal Voltage Meter</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary btn-block" id="btn-inject-fault">
+                                    <i class="fa-solid fa-bolt"></i> Inject Anomaly
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Incident Feed -->
+                    <div class="card feed-card">
+                        <div class="card-header">
+                            <div class="header-title">
+                                <i class="fa-solid fa-list-ul"></i>
+                                <h3>Real-Time Disruption Feed</h3>
+                            </div>
+                        </div>
+                        <div class="card-body feed-container" id="incidents-feed-list">
+                            <div class="feed-empty-state">
+                                <i class="fa-solid fa-circle-check text-success"></i>
+                                <p>All operations normal. No disruptions detected in the grid.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Grid Content for Network Explorer Tab -->
+            <div class="dashboard-grid tab-content" id="tab-network-explorer" style="display: none;">
+                <div class="grid-col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="header-title">
+                                <i class="fa-solid fa-list"></i>
+                                <h3>Network Grid Inventory</h3>
+                            </div>
+                        </div>
+                        <div class="card-body table-responsive">
+                            <div class="explorer-sections">
+                                <div class="explorer-col">
+                                    <h4>Active Trains</h4>
+                                    <table class="data-table" id="table-trains">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Name</th>
+                                                <th>Position</th>
+                                                <th>Destination</th>
+                                                <th>Speed</th>
+                                                <th>Load</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Injected by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="explorer-col">
+                                    <h4>Station Vertices</h4>
+                                    <table class="data-table" id="table-stations">
+                                        <thead>
+                                            <tr>
+                                                <th>Code</th>
+                                                <th>Name</th>
+                                                <th>Zone</th>
+                                                <th>Coord</th>
+                                                <th>Platforms</th>
+                                                <th>Junction</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Injected by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid Content for Incident History Tab -->
+            <div class="dashboard-grid tab-content" id="tab-incidents-log" style="display: none;">
+                <div class="grid-col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="header-title">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                                <h3>Historical Incidents & Continuous Learning Log</h3>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <table class="data-table" id="table-incidents-history">
+                                <thead>
+                                    <tr>
+                                        <th>Incident ID</th>
+                                        <th>Timestamp</th>
+                                        <th>Cascade Prediction Accuracy</th>
+                                        <th>Intervention Optimization Accuracy</th>
+                                        <th>Resolution Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Injected by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid Content for AI Insights Tab -->
+            <div class="dashboard-grid tab-content" id="tab-analytics-insights" style="display: none;">
+                <div class="grid-col-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="header-title">
+                                <i class="fa-solid fa-chart-line"></i>
+                                <h3>Continuous Learning Curve</h3>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <p class="panel-description">Accuracy history showing model adaptation to disruption cascades and intervention forecasts.</p>
+                            <div class="chart-container" style="position: relative; height:300px; width:100%">
+                                <canvas id="learningChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid-col-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="header-title">
+                                <i class="fa-solid fa-circle-nodes"></i>
+                                <h3>Self-Healing System Architecture</h3>
+                            </div>
+                        </div>
+                        <div class="card-body text-center-vertical">
+                            <div class="system-explainer">
+                                <h4>Dynamic Bayesian Network Calibration</h4>
+                                <p>The post-incident learning agent monitors cascades in real time. When prediction error exceeds 20%, it auto-adjusts transition weights (dampening factor per hop) in the Dynamic Bayesian Network to adapt to seasonal and mechanical railway variations.</p>
+                                
+                                <div class="parameter-badge-group">
+                                    <div class="parameter-badge">
+                                        <span class="param-name">LSTM Threshold</span>
+                                        <span class="param-val" id="param-lstm-thresh">0.10</span>
+                                    </div>
+                                    <div class="parameter-badge">
+                                        <span class="param-name">DBN Dampening</span>
+                                        <span class="param-val" id="param-dbn-damp">0.40</span>
+                                    </div>
+                                    <div class="parameter-badge">
+                                        <span class="param-name">MCTS Simulations</span>
+                                        <span class="param-val">50 / node</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Explainer Drawer / Slideout Panel (Right Side) -->
+    <div class="drawer" id="explainer-drawer">
+        <div class="drawer-header">
+            <div class="drawer-title-area">
+                <span class="drawer-pre-title">INCIDENT LOGS & EXPLAINABILITY</span>
+                <h2 class="drawer-title" id="drawer-incident-id">Incident-XXXX</h2>
+            </div>
+            <button class="btn-close" id="btn-close-drawer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div class="drawer-body">
+            <!-- Loading Indicator -->
+            <div class="drawer-loading" id="drawer-loading">
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
+                <p>Generating Root-Cause Explanation via Gemini AI...</p>
+            </div>
+
+            <!-- Content Area -->
+            <div class="drawer-content-wrapper" id="drawer-content" style="display: none;">
+                <!-- Anomaly Score and Detail -->
+                <div class="detail-section">
+                    <h3>Disruption Overview</h3>
+                    <div class="overview-metric-grid">
+                        <div class="overview-metric">
+                            <span class="m-label">Anomaly Score</span>
+                            <span class="m-value red-text" id="drawer-anomaly-score">0.00</span>
+                        </div>
+                        <div class="overview-metric">
+                            <span class="m-label">Location ID</span>
+                            <span class="m-value" id="drawer-anomaly-location">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gemini AI Reason -->
+                <div class="detail-section gemini-section">
+                    <div class="section-title-highlight">
+                        <i class="fa-solid fa-sparkles text-magic"></i>
+                        <h4>Gemini Explainable AI Briefing</h4>
+                    </div>
+                    <div class="explanation-box markdown-body" id="drawer-explanation-text">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- Dynamic Cascade Chart -->
+                <div class="detail-section">
+                    <h4>Dynamic Cascade Risk Propagation</h4>
+                    <p class="section-desc">DBN-modeled cascade probability of other sectors over time steps (T+5, T+10, T+15 mins):</p>
+                    <div class="cascade-visualization-container" id="drawer-cascade-map-viz">
+                        <!-- Dynamic cascade graph injected here -->
+                    </div>
+                </div>
+                
+                <!-- Executed Intervention Log -->
+                <div class="detail-section" id="drawer-resolution-section" style="display: none;">
+                    <h4>Executed Intervention Outcome</h4>
+                    <div class="resolution-badge" id="drawer-resolution-badge">AUTONOMOUS</div>
+                    <div class="resolution-logs-box" id="drawer-resolution-logs">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Custom Logic Script -->
+    <script src="/static/index.js"></script>
+</body>
+</html>

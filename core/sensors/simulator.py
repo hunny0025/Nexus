@@ -64,12 +64,14 @@ class SensorSimulator:
         track_ids: list | None = None,
         train_ids: list | None = None,
         interval_sec: float = 2.0,
+        local_subscriber = None,
     ):
         self.broker_host = broker_host
         self.broker_port = broker_port
         self.track_ids = track_ids or []
         self.train_ids = train_ids or []
         self.interval_sec = interval_sec
+        self.local_subscriber = local_subscriber
 
         # {location_id: {sensor_type: cycle_count}} — tracks fault progression
         self._active_faults: dict[str, dict[str, int]] = {}
@@ -80,18 +82,28 @@ class SensorSimulator:
             protocol=mqtt.MQTTv311,
         )
         self._running = False
+        self._connected = False
 
     # ------------------------------------------------------------------
     # MQTT lifecycle
     # ------------------------------------------------------------------
 
     def _connect(self):
-        self._client.connect(self.broker_host, self.broker_port, keepalive=60)
-        self._client.loop_start()
+        try:
+            self._client.connect(self.broker_host, self.broker_port, keepalive=60)
+            self._client.loop_start()
+            self._connected = True
+        except Exception as exc:
+            self._connected = False
+            print(f"[SIM] Warning: Failed to connect to broker at {self.broker_host}:{self.broker_port} ({exc}). Running locally.")
 
     def _disconnect(self):
-        self._client.loop_stop()
-        self._client.disconnect()
+        if self._connected:
+            try:
+                self._client.loop_stop()
+                self._client.disconnect()
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     # Reading generation
@@ -138,15 +150,25 @@ class SensorSimulator:
     ):
         sensor_id = f"{location_id}_{sensor_type}"
         topic = f"{TOPIC_PREFIX}/{location_id}/{sensor_type}"
-        payload = json.dumps(
-            {
-                "sensor_id": sensor_id,
-                "value": value,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "location": location_id,
-            }
-        )
-        self._client.publish(topic, payload, qos=0)
+        timestamp = datetime.now(timezone.utc).isoformat()
+        
+        if self._connected:
+            payload = json.dumps(
+                {
+                    "sensor_id": sensor_id,
+                    "value": value,
+                    "timestamp": timestamp,
+                    "location": location_id,
+                }
+            )
+            try:
+                self._client.publish(topic, payload, qos=0)
+            except Exception:
+                if self.local_subscriber is not None:
+                    self.local_subscriber.put_reading(sensor_id, value, location_id, timestamp)
+        else:
+            if self.local_subscriber is not None:
+                self.local_subscriber.put_reading(sensor_id, value, location_id, timestamp)
 
     def _publish_cycle(self):
         """Publish one round of readings for all locations."""
