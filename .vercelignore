@@ -1,0 +1,8 @@
+requirements.txt
+api/
+core/
+data/
+Dockerfile
+docker-compose.yml
+mosquitto.conf
+venv/
