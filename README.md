@@ -61,7 +61,7 @@ NEXUS is an autonomous, real-time railway intelligence platform designed for pre
 ## 🛠️ Tech Stack & Workspace Setup
 
 * **Core**: Python 3.10+, FastAPI (Backend), WebSockets (Real-time telemetry & alerts)
-* **Frontend**: Vanilla HTML5, CSS3 (glassmorphic styling, responsive layout), JavaScript (ES6+, Chart.js, SVG-based real-time network topology)
+* **Frontend**: Vanilla HTML5, CSS3 (industrial/Grafana-style styling, dense metrics layout), JavaScript (ES6+, Chart.js, interactive SVG train telemetry schematics)
 * **Databases**: Neo4j (Graph Network Layer), with automatic **in-memory mock graph DB fallback** if offline. SQLite/Local JSON (Incidents & continuous learning log)
 * **Message Broker**: Eclipse Mosquitto (MQTT Telemetry ingestion), with automatic **local memory queue fallback** if offline.
 * **ML/AI Logic**: PyTorch (LSTM AutoEncoder), NetworkX (Probabilistic belief propagation), pgmpy (Dynamic Bayesian Networks), PyMoo/MCTS (Reasoning)
@@ -141,6 +141,23 @@ python scripts/demo_scenario.py
 | **Demo Setup** | `POST` | `/api/demo/inject-fault` | Injects telemetry failure on a track or train section |
 | | `POST` | `/api/demo/reset` | Resets all active faults and re-seeds Neo4j database |
 | | `GET` | `/api/demo/status` | Returns current active simulator faults and WS clients count |
+
+---
+
+## ☁️ Cloud Deployment (Vercel + Render)
+
+NEXUS is fully configured for a decoupled, cloud-native deployment—perfect for hackathon submissions. 
+
+### 1. Backend (Render)
+The FastAPI backend, Orchestrator, and AI Models run on Render. 
+- Use the included `render.yaml` Blueprint to automatically provision the web service.
+- **Zero-Config Fallback:** If you do not provide `NEO4J_URI` or `MQTT_BROKER` environment variables, the server will automatically fall back to its in-memory mock database and mock broker, making deployment completely free and instant.
+
+### 2. Frontend (Vercel)
+The interactive dashboard is hosted on Vercel.
+- The repository includes a `vercel.json` file to handle static routing.
+- Set the Vercel **Root Directory** to `frontend`.
+- Edit `frontend/config.js` to point `API_URL` to your deployed Render URL so the frontend can pull live telemetry and WebSockets from the cloud.
 
 ---
 
