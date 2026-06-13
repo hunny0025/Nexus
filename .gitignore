@@ -11,3 +11,4 @@ build/
 data/models/*.pt
 data/models/*.pkl
 data/historical/*.csv
+venv/

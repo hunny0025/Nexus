@@ -12298,5 +12298,118 @@
       "cascade_accuracy": 0.5,
       "intervention_accuracy": 0.5
     }
+  },
+  {
+    "incident_id": null,
+    "timestamp": "2026-06-13T18:56:19.561727+00:00",
+    "predicted_cascade_map": {
+      "JP": {
+        "15min": 0.45,
+        "30min": 0.396,
+        "45min": 0.3636,
+        "60min": 0.3442
+      },
+      "SC": {
+        "15min": 0.0,
+        "30min": 0.0432,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "MAS": {
+        "15min": 0.0,
+        "30min": 0.0,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "SBC": {
+        "15min": 0.0,
+        "30min": 0.0,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "BPL": {
+        "15min": 0.45,
+        "30min": 0.396,
+        "45min": 0.3636,
+        "60min": 0.3442
+      },
+      "LKO": {
+        "15min": 0.0,
+        "30min": 0.0432,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "NDLS": {
+        "15min": 0.18,
+        "30min": 0.0432,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "PNBE": {
+        "15min": 0.0,
+        "30min": 0.0,
+        "45min": 0.0,
+        "60min": 0.0
+      },
+      "ALD": {
+        "15min": 0.0,
+        "30min": 0.0432,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "CNB": {
+        "15min": 0.0,
+        "30min": 0.0432,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "HNZ": {
+        "15min": 0.18,
+        "30min": 0.0432,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "BCT": {
+        "15min": 0.18,
+        "30min": 0.0432,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "ADI": {
+        "15min": 0.18,
+        "30min": 0.0432,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "MGS": {
+        "15min": 0.0,
+        "30min": 0.0,
+        "45min": 0.0104,
+        "60min": 0.0
+      },
+      "NGP": {
+        "15min": 0.18,
+        "30min": 0.0432,
+        "45min": 0.0104,
+        "60min": 0.0
+      }
+    },
+    "predicted_intervention_outcome": {
+      "intervention": {
+        "type": "MAINTENANCE_DISPATCH",
+        "complexity": 2,
+        "crew_id": "CREW_003",
+        "crew_station": "BPL",
+        "eta_minutes": 18,
+        "specialization": "ELECTRICAL"
+      },
+      "expected_reward": 1805.52,
+      "simulations_run": 20,
+      "confidence": 1.0
+    },
+    "accuracy": {
+      "cascade_accuracy": 0.5,
+      "intervention_accuracy": 0.5
+    }
   }
 ]

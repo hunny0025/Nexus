@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: nexus-api
+    env: docker
+    plan: free
+    dockerCommand: "uvicorn api.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NEO4J_URI
+        sync: false
+      - key: NEO4J_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MQTT_BROKER
+        sync: false

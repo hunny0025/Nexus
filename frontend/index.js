@@ -3,8 +3,17 @@
    ========================================================================== */
 
 // Configuration
-const BASE_URL = window.location.origin;
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+const configApiUrl = window.ENV_CONFIG?.API_URL;
+const BASE_URL = configApiUrl || window.location.origin;
+
+let WS_URL;
+if (configApiUrl) {
+    const wsProtocol = configApiUrl.startsWith('https') ? 'wss:' : 'ws:';
+    const wsHost = configApiUrl.replace(/^https?:\/\//, '');
+    WS_URL = `${wsProtocol}//${wsHost}/ws`;
+} else {
+    WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+}
 
 // Global State
 let state = {
