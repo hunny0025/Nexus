@@ -35,11 +35,9 @@ async def get_system_stats(request: Request):
             if outcome:
                 autonomous_count += 1
                 total_confidence += outcome.get("confidence", 0.5)
-                predicted = outcome.get("total_delay_minutes", 120)
-                actual = rec.get("actual_delay_minutes", predicted)
-                if actual > 0:
-                    reduction = max(0, 1 - predicted / actual)
-                    total_delay_reduction += reduction
+                # Use the predicted delay reduction from the AI (predictive KPI)
+                reduction = outcome.get("delay_reduction_pct", 0.0)
+                total_delay_reduction += reduction
 
     autonomous_rate = (
         (autonomous_count / total_incidents * 100) if total_incidents > 0 else 0
