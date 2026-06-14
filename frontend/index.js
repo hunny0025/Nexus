@@ -861,55 +861,105 @@ function setupForms() {
             btnShowcase.disabled = true;
             btnShowcase.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Running...`;
             
-            showToast('info', 'Showcase Started', 'Running automated end-to-end simulation sequence...');
-            
-            if (state.tracks.length === 0) {
-                showToast('error', 'Error', 'No tracks available to inject fault.');
-                btnShowcase.disabled = false;
-                btnShowcase.innerHTML = `<i class="fa-solid fa-play"></i> Auto Demo`;
-                return;
-            }
-            
-            const targetTrack = state.tracks[0].id; // Pick first track (e.g., T-1)
-            
+            // Create a fake cursor
+            const cursor = document.createElement('div');
+            cursor.innerHTML = '<i class="fa-solid fa-arrow-pointer" style="font-size: 28px; color: #ff3366; filter: drop-shadow(3px 5px 5px rgba(0,0,0,0.4));"></i>';
+            cursor.style.position = 'fixed';
+            cursor.style.zIndex = '999999';
+            cursor.style.top = '10px';
+            cursor.style.left = '50%';
+            cursor.style.transition = 'all 1.2s ease-in-out';
+            cursor.style.pointerEvents = 'none';
+            document.body.appendChild(cursor);
+
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+            const moveTo = async (element, offsetX = 0, offsetY = 0) => {
+                if (!element) return;
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                await sleep(500); // Wait for scroll
+                const rect = element.getBoundingClientRect();
+                cursor.style.top = `${rect.top + rect.height/2 + offsetY}px`;
+                cursor.style.left = `${rect.left + rect.width/2 + offsetX}px`;
+                await sleep(1300); // Wait for transition
+            };
+
+            const simulateClick = async (element) => {
+                if (!element) return;
+                cursor.style.transform = 'scale(0.7)';
+                await sleep(150);
+                cursor.style.transform = 'scale(1)';
+                element.click();
+                await sleep(500);
+            };
+
             try {
-                await fetch(`${BASE_URL}/api/demo/inject-fault`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        location_id: targetTrack,
-                        sensor_types: ['vibration', 'track_stress']
-                    })
-                });
+                showToast('info', 'Guided Tour Started', 'Watch the autonomous AI in action...');
+                await sleep(1000);
+
+                // 1. Move to Fault Injection form
+                const locSelect = document.getElementById('demo-location-select');
+                await moveTo(locSelect, 50, 0);
                 
-                showToast('warning', 'Fault Injected', `Simulating severe anomaly on ${targetTrack}. Awaiting AI Orchestrator...`);
+                // Select first track
+                if (locSelect.options.length > 1) {
+                    locSelect.selectedIndex = 1;
+                    locSelect.dispatchEvent(new Event('change'));
+                }
+
+                // 2. Click Inject Anomaly
+                const injectBtn = document.getElementById('btn-inject-fault');
+                await moveTo(injectBtn, 0, 0);
+                await simulateClick(injectBtn);
+
+                // 3. Wait for Escalation to appear
+                showToast('warning', 'Awaiting Detection', 'Waiting for AI Orchestrator to flag anomaly...');
+                let waitCount = 0;
+                let escalationApproveBtn = null;
                 
-                let checkCount = 0;
-                const checkEscalation = setInterval(async () => {
-                    checkCount++;
-                    if (state.pendingEscalations.length > 0) {
-                        clearInterval(checkEscalation);
-                        showToast('info', 'AI Response', 'Escalation received! Auto-approving optimal intervention in 4 seconds...');
-                        
-                        setTimeout(async () => {
-                            if (state.pendingEscalations.length > 0) {
-                                const incidentId = state.pendingEscalations[0].incident_id;
-                                await approveIntervention(incidentId, 0);
-                            }
-                            btnShowcase.disabled = false;
-                            btnShowcase.innerHTML = `<i class="fa-solid fa-play"></i> Auto Demo`;
-                            showToast('success', 'Sequence Complete', 'End-to-end automated showcase finished successfully.');
-                        }, 4000);
-                    } else if (checkCount > 15) { // 30 seconds max wait
-                        clearInterval(checkEscalation);
-                        btnShowcase.disabled = false;
-                        btnShowcase.innerHTML = `<i class="fa-solid fa-play"></i> Auto Demo`;
-                        showToast('error', 'Timeout', 'Orchestrator took too long to escalate.');
+                while(waitCount < 20) {
+                    // Check if an escalation card appeared in the DOM
+                    const escalationsList = document.getElementById('escalations-list');
+                    const approveBtns = escalationsList ? escalationsList.querySelectorAll('.btn-primary') : [];
+                    if (approveBtns.length > 0) {
+                        escalationApproveBtn = approveBtns[0];
+                        break;
                     }
-                }, 2000);
+                    await sleep(1000);
+                    waitCount++;
+                }
+
+                if (escalationApproveBtn) {
+                    // 4. Move to Approve button and click
+                    await sleep(1500); // Give user time to read the HIL card
+                    await moveTo(escalationApproveBtn, 0, 0);
+                    await simulateClick(escalationApproveBtn);
+                    
+                    showToast('success', 'Intervention Approved', 'AI automatically resolving the crisis...');
+                    await sleep(2000);
+                    
+                    // 5. Move to Active Incidents and open Explainability Drawer
+                    const incidentCards = document.querySelectorAll('#incidents-list .incident-card');
+                    if (incidentCards.length > 0) {
+                        const viewBtn = incidentCards[0].querySelector('.btn-sm'); // The 'Details' button
+                        if (viewBtn) {
+                            await moveTo(viewBtn, 0, 0);
+                            await simulateClick(viewBtn);
+                            showToast('info', 'Explainability', 'Viewing the AI cascade map and reasoning.');
+                        }
+                    }
+                } else {
+                    showToast('error', 'Timeout', 'The Orchestrator did not respond in time.');
+                }
                 
+                // Hide cursor after demo
+                await sleep(3000);
+
             } catch (err) {
-                showToast('error', 'Network Error', 'Failed to start showcase.');
+                console.error(err);
+                showToast('error', 'Demo Error', 'Guided tour failed.');
+            } finally {
+                cursor.remove();
                 btnShowcase.disabled = false;
                 btnShowcase.innerHTML = `<i class="fa-solid fa-play"></i> Auto Demo`;
             }
