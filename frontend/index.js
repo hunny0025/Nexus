@@ -908,9 +908,9 @@ function setupForms() {
                 await narrator('Step 1: Monitoring', 'Here is the main Operations Center where we monitor live telemetry.', 2500);
 
                 // 1. Move to Fault Injection form
-                const locSelect = document.getElementById('demo-location-select');
+                const locSelect = document.getElementById('inject-location');
                 await moveTo(locSelect, 50, 0);
-                if (locSelect.options.length > 1) {
+                if (locSelect && locSelect.options.length > 1) {
                     locSelect.selectedIndex = 1;
                     locSelect.dispatchEvent(new Event('change'));
                 }
