@@ -2,6 +2,11 @@
 
 NEXUS is an autonomous, real-time railway intelligence platform designed for predictive disruption management and closed-loop decision support. By fusing real-time sensor streams, graph topology, Dynamic Bayesian Networks, Monte Carlo Tree Search, and LLM reasoning, NEXUS detects track/train degradation, models cascade propagation, generates counterfactual interventions, and executes actions autonomously or escalates with human-in-the-loop explainability.
 
+## 🚀 Live Deployment
+
+- **Frontend (Vercel):** [https://nexus-omega-blue.vercel.app/](https://nexus-omega-blue.vercel.app/)
+- **Backend (Render):** [https://nexus-api-nvxk.onrender.com/docs](https://nexus-api-nvxk.onrender.com/docs)
+
 ---
 
 ## 🏗️ Architecture & Data Flow
