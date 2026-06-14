@@ -850,9 +850,71 @@ function setupForms() {
             showToast('error', 'Reset Timeout', 'Connection timed out resetting database.');
         } finally {
             btnReset.disabled = false;
-            btnReset.innerHTML = `<i class="fa-solid fa-rotate-right"></i> Reset Demo`;
+            btnReset.innerHTML = `<i class="fa-solid fa-rotate-right"></i> Reset`;
         }
     });
+
+    // Auto Showcase Demo Button
+    const btnShowcase = document.getElementById('btn-showcase-demo');
+    if (btnShowcase) {
+        btnShowcase.addEventListener('click', async () => {
+            btnShowcase.disabled = true;
+            btnShowcase.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Running...`;
+            
+            showToast('info', 'Showcase Started', 'Running automated end-to-end simulation sequence...');
+            
+            if (state.tracks.length === 0) {
+                showToast('error', 'Error', 'No tracks available to inject fault.');
+                btnShowcase.disabled = false;
+                btnShowcase.innerHTML = `<i class="fa-solid fa-play"></i> Auto Demo`;
+                return;
+            }
+            
+            const targetTrack = state.tracks[0].id; // Pick first track (e.g., T-1)
+            
+            try {
+                await fetch(`${BASE_URL}/api/demo/inject-fault`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        location_id: targetTrack,
+                        sensor_types: ['vibration', 'track_stress']
+                    })
+                });
+                
+                showToast('warning', 'Fault Injected', `Simulating severe anomaly on ${targetTrack}. Awaiting AI Orchestrator...`);
+                
+                let checkCount = 0;
+                const checkEscalation = setInterval(async () => {
+                    checkCount++;
+                    if (state.pendingEscalations.length > 0) {
+                        clearInterval(checkEscalation);
+                        showToast('info', 'AI Response', 'Escalation received! Auto-approving optimal intervention in 4 seconds...');
+                        
+                        setTimeout(async () => {
+                            if (state.pendingEscalations.length > 0) {
+                                const incidentId = state.pendingEscalations[0].incident_id;
+                                await approveIntervention(incidentId, 0);
+                            }
+                            btnShowcase.disabled = false;
+                            btnShowcase.innerHTML = `<i class="fa-solid fa-play"></i> Auto Demo`;
+                            showToast('success', 'Sequence Complete', 'End-to-end automated showcase finished successfully.');
+                        }, 4000);
+                    } else if (checkCount > 15) { // 30 seconds max wait
+                        clearInterval(checkEscalation);
+                        btnShowcase.disabled = false;
+                        btnShowcase.innerHTML = `<i class="fa-solid fa-play"></i> Auto Demo`;
+                        showToast('error', 'Timeout', 'Orchestrator took too long to escalate.');
+                    }
+                }, 2000);
+                
+            } catch (err) {
+                showToast('error', 'Network Error', 'Failed to start showcase.');
+                btnShowcase.disabled = false;
+                btnShowcase.innerHTML = `<i class="fa-solid fa-play"></i> Auto Demo`;
+            }
+        });
+    }
 }
 
 // -------------------------------------------------------------------------
