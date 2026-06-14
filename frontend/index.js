@@ -43,8 +43,8 @@ const projection = {
     maxLng: 86.5,
     width: 800,
     height: 520,
-
-    project: function (lat, lng) {
+    
+    project: function(lat, lng) {
         // x increases from left to right as lng increases
         const x = ((lng - this.minLng) / (this.maxLng - this.minLng)) * this.width;
         // y increases from top to bottom as lat decreases
@@ -62,10 +62,10 @@ async function initApp() {
     setupTabNavigation();
     setupDrawer();
     setupForms();
-
+    
     // Connect websocket
     connectWebSocket();
-
+    
     // Initial fetch of data
     await loadInitialData();
 }
@@ -80,7 +80,7 @@ async function loadInitialData() {
             fetchPendingEscalations(),
             fetchDemoStatus()
         ]);
-
+        
         // Render initial topology & charts
         renderRailwayMap();
         populateAssetDropdowns();
@@ -88,7 +88,7 @@ async function loadInitialData() {
         renderIncidentsLog();
         initLearningCurveChart();
         renderTelemetryFleetList();
-
+        
         showToast('success', 'NEXUS Operational', 'Operations dashboard loaded successfully.');
     } catch (err) {
         console.error("Error loading initial data", err);
@@ -133,7 +133,7 @@ async function fetchDemoStatus() {
         const data = await res.json();
         state.activeFaults = data.active_faults || {};
         state.wsClientCount = data.ws_clients_count || 0;
-
+        
         // Update stats
         const activeFaultsCount = Object.keys(state.activeFaults).length;
         document.getElementById('inject-location').disabled = false;
@@ -149,12 +149,12 @@ async function fetchDemoStatus() {
 function connectWebSocket() {
     const wsStatusDot = document.getElementById('ws-status');
     const wsStatusText = document.getElementById('ws-status-text');
-
+    
     wsStatusDot.className = 'connection-status connecting';
     wsStatusText.textContent = 'Websocket Connecting';
-
+    
     const ws = new WebSocket(WS_URL);
-
+    
     ws.onopen = () => {
         wsStatusDot.className = 'connection-status connected';
         wsStatusText.textContent = 'Websocket Live';
@@ -166,23 +166,23 @@ function connectWebSocket() {
             }
         }, 15000);
     };
-
+    
     ws.onmessage = async (event) => {
         try {
             const data = JSON.parse(event.data);
             if (data.type === "PONG") return;
-
+            
             console.log("WebSocket event received", data);
-
+            
             if (data.type === "ORCHESTRATOR_ALERT") {
                 showToast('warning', 'Disruption Detected!', `Anomaly confirmed at ${data.anomaly_location} (Score: ${data.anomaly_score.toFixed(2)})`);
-
+                
                 // Refresh states
                 await fetchNetworkState();
                 await fetchSystemStats();
                 await fetchIncidents();
                 await fetchPendingEscalations();
-
+                
                 // Rerender dashboard
                 renderRailwayMap();
                 renderIncidentsLog();
@@ -190,11 +190,11 @@ function connectWebSocket() {
                 updateLearningChart();
                 renderTelemetryFleetList();
                 updateTelemetryDiagnostics();
-
+                
                 // If a pending escalation is present, highlight the card
                 const pendingCard = document.getElementById('stat-pending-card');
                 if (pendingCard) pendingCard.classList.add('active');
-
+                
             } else if (data.type === "FAULT_INJECTED") {
                 showToast('info', 'Fault Injected', `Telemetry failure injected on ${data.location_id} (${data.sensors.join(', ')})`);
                 await fetchDemoStatus();
@@ -202,13 +202,13 @@ function connectWebSocket() {
                 renderRailwayMap();
                 renderTelemetryFleetList();
                 updateTelemetryDiagnostics();
-
+                
             } else if (data.type === "DEMO_RESET") {
                 showToast('success', 'Demo Reset', 'System state reset and Neo4j database successfully re-seeded.');
-
+                
                 // Reload everything
                 await loadInitialData();
-
+                
                 // Remove highlight from pending card
                 const pendingCard = document.getElementById('stat-pending-card');
                 if (pendingCard) pendingCard.classList.remove('active');
@@ -217,14 +217,14 @@ function connectWebSocket() {
             console.error("Error processing websocket message", e);
         }
     };
-
+    
     ws.onclose = () => {
         wsStatusDot.className = 'connection-status disconnected';
         wsStatusText.textContent = 'Websocket Closed';
         console.log("WebSocket connection closed. Retrying in 5 seconds...");
         setTimeout(connectWebSocket, 5000);
     };
-
+    
     ws.onerror = (err) => {
         console.error("WebSocket error observed", err);
         ws.close();
@@ -240,23 +240,23 @@ function setupTabNavigation() {
     navTabs.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
-
+            
             // Remove active class from nav tabs and tab content panels
             navTabs.forEach(n => n.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
+            
             // Add active class to clicked nav tab
             item.classList.add('active');
-
+            
             // Add active class to corresponding content panel
             const tabId = item.getAttribute('data-tab');
             const tabEl = document.getElementById(`tab-${tabId}`);
             if (tabEl) {
                 tabEl.classList.add('active');
             }
-
+            
             state.activeTab = tabId;
-
+            
             // Trigger specific page updates
             if (tabId === 'analytics-insights') {
                 setTimeout(updateLearningChart, 100);
@@ -278,13 +278,13 @@ function updateStatsGrid() {
     document.getElementById('stat-auto-rate').textContent = `${state.systemStats.autonomous_rate_pct || 0.0}%`;
     document.getElementById('stat-delay-reduction').textContent = `${state.systemStats.avg_delay_reduction_pct || 0.0}%`;
     document.getElementById('stat-incidents-count').textContent = state.systemStats.total_incidents_handled || 0;
-
+    
     const pendingCount = state.systemStats.pending_escalations || 0;
     document.getElementById('stat-pending-count').textContent = pendingCount;
-
+    
     const pendingCard = document.getElementById('stat-pending-card');
     const pendingLabel = document.getElementById('stat-pending-label');
-
+    
     if (pendingCount > 0) {
         pendingCard.classList.add('active');
         pendingLabel.className = 'stat-trend warning-text flashing';
@@ -304,14 +304,14 @@ function renderRailwayMap() {
     const svgTracks = document.getElementById('svg-tracks');
     const svgStations = document.getElementById('svg-stations');
     const svgTrains = document.getElementById('svg-trains');
-
+    
     // Clear existing SVG groups
     svgTracks.innerHTML = '';
     svgStations.innerHTML = '';
     svgTrains.innerHTML = '';
-
+    
     const tooltip = document.getElementById('map-tooltip');
-
+    
     // Map stations for coordinate lookup
     const stationCoords = {};
     state.stations.forEach(station => {
@@ -323,22 +323,22 @@ function renderRailwayMap() {
     state.tracks.forEach(track => {
         const fromCoord = stationCoords[track.from];
         const toCoord = stationCoords[track.to];
-
+        
         if (!fromCoord || !toCoord) return;
-
+        
         const isAnomalous = state.activeFaults[track.id] !== undefined;
-
+        
         const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
         line.setAttribute("x1", fromCoord.x);
         line.setAttribute("y1", fromCoord.y);
         line.setAttribute("x2", toCoord.x);
         line.setAttribute("y2", toCoord.y);
-
+        
         let className = "svg-track-line";
         if (isAnomalous) className += " anomalous";
         line.setAttribute("class", className);
         line.setAttribute("id", `svg-track-${track.id}`);
-
+        
         // Interactive tooltips on hover
         line.addEventListener('mousemove', (e) => {
             const faults = state.activeFaults[track.id];
@@ -346,7 +346,7 @@ function renderRailwayMap() {
             if (faults) {
                 faultInfo = `<div class="red-text mt-1"><strong>⚠️ Anomaly Injected:</strong> ${faults.join(', ')}</div>`;
             }
-
+            
             tooltip.innerHTML = `
                 <h4>Track Section: ${track.id}</h4>
                 <div><strong>From:</strong> ${track.from} ➔ <strong>To:</strong> ${track.to}</div>
@@ -359,15 +359,15 @@ function renderRailwayMap() {
             tooltip.style.left = `${e.pageX - document.getElementById('map-parent').getBoundingClientRect().left + 15}px`;
             tooltip.style.top = `${e.pageY - document.getElementById('map-parent').getBoundingClientRect().top + 15}px`;
         });
-
+        
         line.addEventListener('mouseleave', () => {
             tooltip.style.opacity = 0;
         });
-
+        
         line.addEventListener('click', () => {
             document.getElementById('inject-location').value = track.id;
         });
-
+        
         svgTracks.appendChild(line);
     });
 
@@ -375,30 +375,30 @@ function renderRailwayMap() {
     state.stations.forEach(station => {
         const coord = stationCoords[station.id];
         if (!coord) return;
-
+        
         const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
         group.setAttribute("class", "svg-station-group");
-
+        
         // Node circle
         const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         circle.setAttribute("cx", coord.x);
         circle.setAttribute("cy", coord.y);
         circle.setAttribute("r", station.is_junction ? "6" : "4.5");
-
+        
         let className = "svg-station-node";
         if (station.is_junction) className += " junction";
         circle.setAttribute("class", className);
-
+        
         // Text label
         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
         text.setAttribute("x", coord.x + 8);
         text.setAttribute("y", coord.y + 3);
         text.setAttribute("class", "svg-station-label");
         text.textContent = station.id;
-
+        
         group.appendChild(circle);
         group.appendChild(text);
-
+        
         // Station hover tooltips
         group.addEventListener('mousemove', (e) => {
             tooltip.innerHTML = `
@@ -411,11 +411,11 @@ function renderRailwayMap() {
             tooltip.style.left = `${e.pageX - document.getElementById('map-parent').getBoundingClientRect().left + 15}px`;
             tooltip.style.top = `${e.pageY - document.getElementById('map-parent').getBoundingClientRect().top + 15}px`;
         });
-
+        
         group.addEventListener('mouseleave', () => {
             tooltip.style.opacity = 0;
         });
-
+        
         svgStations.appendChild(group);
     });
 
@@ -423,29 +423,29 @@ function renderRailwayMap() {
     state.trains.forEach(train => {
         const currentCoord = stationCoords[train.current_station];
         const nextCoord = stationCoords[train.next_station];
-
+        
         if (!currentCoord) return;
-
+        
         let tx = currentCoord.x;
         let ty = currentCoord.y;
-
+        
         // Interpolate position along the track if the train is moving (next_station exists)
         if (nextCoord) {
             // Place 40% of the way along the line for visual separation
             tx = currentCoord.x + 0.4 * (nextCoord.x - currentCoord.x);
             ty = currentCoord.y + 0.4 * (nextCoord.y - currentCoord.y);
         }
-
+        
         const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
         marker.setAttribute("cx", tx);
         marker.setAttribute("cy", ty);
         marker.setAttribute("r", "5.5");
-
+        
         let className = "svg-train-marker";
         if (train.status !== "ON_TIME") className += " delayed";
         marker.setAttribute("class", className);
         marker.setAttribute("id", `svg-train-${train.id}`);
-
+        
         // Train hover tooltip
         marker.addEventListener('mousemove', (e) => {
             tooltip.innerHTML = `
@@ -459,15 +459,15 @@ function renderRailwayMap() {
             tooltip.style.left = `${e.pageX - document.getElementById('map-parent').getBoundingClientRect().left + 15}px`;
             tooltip.style.top = `${e.pageY - document.getElementById('map-parent').getBoundingClientRect().top + 15}px`;
         });
-
+        
         marker.addEventListener('mouseleave', () => {
             tooltip.style.opacity = 0;
         });
-
+        
         marker.addEventListener('click', () => {
             document.getElementById('inject-location').value = train.id;
         });
-
+        
         svgTrains.appendChild(marker);
     });
 }
@@ -478,10 +478,10 @@ function renderRailwayMap() {
 
 function populateAssetDropdowns() {
     const select = document.getElementById('inject-location');
-
+    
     // Clear options but keep default
     select.innerHTML = '<option value="">-- Select Asset (Track/Train) --</option>';
-
+    
     // Tracks option group
     const optGroupTracks = document.createElement('optgroup');
     optGroupTracks.label = "Track Segments";
@@ -491,7 +491,7 @@ function populateAssetDropdowns() {
         opt.textContent = `${track.id} (${track.from} ➔ ${track.to})`;
         optGroupTracks.appendChild(opt);
     });
-
+    
     // Trains option group
     const optGroupTrains = document.createElement('optgroup');
     optGroupTrains.label = "Active Trains";
@@ -501,7 +501,7 @@ function populateAssetDropdowns() {
         opt.textContent = `${train.id} - ${train.name}`;
         optGroupTrains.appendChild(opt);
     });
-
+    
     select.appendChild(optGroupTracks);
     select.appendChild(optGroupTrains);
 }
@@ -514,7 +514,7 @@ function renderNetworkTables() {
     // Trains Table
     const tbodyTrains = document.querySelector('#table-trains tbody');
     tbodyTrains.innerHTML = '';
-
+    
     state.trains.forEach(t => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -532,7 +532,7 @@ function renderNetworkTables() {
     // Stations Table
     const tbodyStations = document.querySelector('#table-stations tbody');
     tbodyStations.innerHTML = '';
-
+    
     state.stations.forEach(s => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -554,10 +554,10 @@ function renderNetworkTables() {
 function renderIncidentsLog() {
     const list = document.getElementById('incidents-feed-list');
     const tbodyHistory = document.querySelector('#table-incidents-history tbody');
-
+    
     list.innerHTML = '';
     tbodyHistory.innerHTML = '';
-
+    
     if (state.incidents.length === 0) {
         list.innerHTML = `
             <div class="feed-empty-state">
@@ -573,15 +573,15 @@ function renderIncidentsLog() {
     const reversedIncidents = [...state.incidents].reverse();
     reversedIncidents.forEach(inc => {
         const item = document.createElement('div');
-
+        
         let severityClass = "warning";
         let score = inc.cascade_accuracy;
         if (score < 0.6) severityClass = "critical";
         else if (score >= 0.85) severityClass = "resolved";
-
+        
         const date = new Date(inc.timestamp);
         const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
+        
         item.className = `feed-item ${severityClass}`;
         item.innerHTML = `
             <div class="feed-item-header">
@@ -594,21 +594,21 @@ function renderIncidentsLog() {
                 <span>Optim. Accuracy: ${(inc.intervention_accuracy * 100).toFixed(0)}%</span>
             </div>
         `;
-
+        
         item.addEventListener('click', () => {
             openDrawer(inc.incident_id);
         });
-
+        
         list.appendChild(item);
     });
 
     // Populate historical tab table
     state.incidents.forEach(inc => {
         const tr = document.createElement('tr');
-
+        
         const date = new Date(inc.timestamp);
         const dateStr = date.toLocaleString();
-
+        
         tr.innerHTML = `
             <td><strong class="text-magic cursor-pointer" onclick="openDrawer('${inc.incident_id}')">${inc.incident_id}</strong></td>
             <td>${dateStr}</td>
@@ -641,18 +641,18 @@ let selectedInterventionIndex = 0;
 function renderPendingEscalations() {
     const card = document.getElementById('pending-escalations-card');
     const container = document.getElementById('pending-brief-container');
-
+    
     if (state.pendingEscalations.length === 0) {
         card.style.display = 'none';
         return;
     }
-
+    
     card.style.display = 'block';
     container.innerHTML = '';
-
+    
     // Handle the first pending brief (simplification for UI)
     const brief = state.pendingEscalations[0];
-
+    
     const div = document.createElement('div');
     div.innerHTML = `
         <div class="brief-meta">
@@ -683,21 +683,21 @@ function renderPendingEscalations() {
             <i class="fa-solid fa-check-double"></i> Authorize & Execute Plan
         </button>
     `;
-
+    
     container.appendChild(div);
-
+    
     // Inject MCTS options
     const optionsSelector = document.getElementById('options-selector');
     selectedInterventionIndex = 0; // Default first option
-
+    
     brief.top_3_options.forEach((opt, idx) => {
         const item = document.createElement('div');
         item.className = `opt-card ${idx === 0 ? 'selected' : ''}`;
         item.dataset.index = idx;
-
+        
         const iv = opt.intervention;
         const proj = opt.projected_outcome;
-
+        
         let desc = "";
         if (iv.type === "REROUTE") {
             desc = `Reroute train ${iv.train_id} via path: ${iv.selected_route.path.join(' ➔ ')}`;
@@ -708,7 +708,7 @@ function renderPendingEscalations() {
         } else {
             desc = `Multi-objective synergy hold & reroute (synergy bonus: +${iv.synergy_bonus || 0})`;
         }
-
+        
         item.innerHTML = `
             <div class="opt-header">
                 <span class="opt-title">${iv.type.replace('_', ' ')}</span>
@@ -719,16 +719,16 @@ function renderPendingEscalations() {
             </div>
             <div class="opt-desc">${desc}</div>
         `;
-
+        
         item.addEventListener('click', () => {
             document.querySelectorAll('#options-selector .opt-card').forEach(c => c.classList.remove('selected'));
             item.classList.add('selected');
             selectedInterventionIndex = idx;
         });
-
+        
         optionsSelector.appendChild(item);
     });
-
+    
     // Bind approve action
     document.getElementById('btn-approve-intervention').addEventListener('click', async () => {
         await approveIntervention(brief.incident_id, selectedInterventionIndex);
@@ -742,10 +742,10 @@ function renderPendingEscalations() {
 async function approveIntervention(incidentId, index) {
     const btn = document.getElementById('btn-approve-intervention');
     const oldText = btn.innerHTML;
-
+    
     btn.disabled = true;
     btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Authorizing Execution...`;
-
+    
     try {
         const res = await fetch(`${BASE_URL}/api/interventions/${incidentId}/approve`, {
             method: 'POST',
@@ -753,21 +753,21 @@ async function approveIntervention(incidentId, index) {
             body: JSON.stringify({ intervention_index: index })
         });
         const data = await res.json();
-
+        
         if (data.error) {
             showToast('error', 'Mitigation Failed', data.error);
         } else {
             showToast('success', 'Plan Authorized', `Intervention plan executed for incident ${incidentId}. Graph sync completed.`);
-
+            
             // Clear pending states in UI
             state.pendingEscalations = state.pendingEscalations.filter(p => p.incident_id !== incidentId);
             renderPendingEscalations();
-
+            
             // Update other states
             await fetchSystemStats();
             await fetchIncidents();
             await fetchNetworkState();
-
+            
             renderRailwayMap();
             renderIncidentsLog();
             renderNetworkTables();
@@ -785,27 +785,27 @@ function setupForms() {
     const form = document.getElementById('fault-injection-form');
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-
+        
         const selectLocation = document.getElementById('inject-location').value;
         if (!selectLocation) {
             showToast('warning', 'Input Required', 'Please select a valid track or train section.');
             return;
         }
-
+        
         const checkedSensors = [];
         document.querySelectorAll('input[name="sensor_type"]:checked').forEach(cb => {
             checkedSensors.push(cb.value);
         });
-
+        
         if (checkedSensors.length === 0) {
             showToast('warning', 'Input Required', 'Please check at least one sensor for fault injection.');
             return;
         }
-
+        
         const btn = document.getElementById('btn-inject-fault');
         btn.disabled = true;
         btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Injecting Anomaly...`;
-
+        
         try {
             const res = await fetch(`${BASE_URL}/api/demo/inject-fault`, {
                 method: 'POST',
@@ -816,7 +816,7 @@ function setupForms() {
                 })
             });
             const data = await res.json();
-
+            
             if (data.status === "FAULT_INJECTED") {
                 showToast('success', 'Fault Active', `Injected fault at ${selectLocation}. Kalman filter bank is monitoring...`);
             } else {
@@ -829,15 +829,15 @@ function setupForms() {
             btn.innerHTML = `<i class="fa-solid fa-bolt"></i> Inject Anomaly`;
         }
     });
-
+    
     // Reset Demo Button
     const btnReset = document.getElementById('btn-reset-demo');
     btnReset.addEventListener('click', async () => {
         btnReset.disabled = true;
         btnReset.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Resetting...`;
-
+        
         showToast('info', 'Resetting Database', 'Clearing faults and rebuilding Neo4j graph nodes...');
-
+        
         try {
             const res = await fetch(`${BASE_URL}/api/demo/reset`, { method: 'POST' });
             const data = await res.json();
@@ -860,7 +860,7 @@ function setupForms() {
         btnShowcase.addEventListener('click', async () => {
             btnShowcase.disabled = true;
             btnShowcase.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Running Demo...`;
-
+            
             // Create a fake cursor
             const cursor = document.createElement('div');
             cursor.innerHTML = '<i class="fa-solid fa-arrow-pointer" style="font-size: 32px; color: #ff0055; filter: drop-shadow(4px 6px 8px rgba(0,0,0,0.5));"></i>';
@@ -879,8 +879,8 @@ function setupForms() {
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 await sleep(600); // Wait for scroll
                 const rect = element.getBoundingClientRect();
-                cursor.style.top = `${rect.top + rect.height / 2 + offsetY}px`;
-                cursor.style.left = `${rect.left + rect.width / 2 + offsetX}px`;
+                cursor.style.top = `${rect.top + rect.height/2 + offsetY}px`;
+                cursor.style.left = `${rect.left + rect.width/2 + offsetX}px`;
                 await sleep(1600); // Wait for transition
             };
 
@@ -923,10 +923,10 @@ function setupForms() {
 
                 // 3. Wait for Escalation
                 await narrator('Step 3: AI Detection', 'The LSTM neural networks and GraphSAGE models are analyzing the fault...', 2000);
-
+                
                 let waitCount = 0;
                 let escalationApproveBtn = null;
-                while (waitCount < 20) {
+                while(waitCount < 20) {
                     const escalationsList = document.getElementById('escalations-list');
                     const approveBtns = escalationsList ? escalationsList.querySelectorAll('.btn-primary') : [];
                     if (approveBtns.length > 0) {
@@ -939,14 +939,14 @@ function setupForms() {
 
                 if (escalationApproveBtn) {
                     await narrator('Step 4: AI Resolution', 'The AI generated an optimal counterfactual intervention. Approving it now...', 3000);
-
+                    
                     // Move to Approve button and click
                     await moveTo(escalationApproveBtn, 0, 0);
                     await simulateClick(escalationApproveBtn);
-
+                    
                     showToast('success', 'Crisis Averted', 'Intervention deployed successfully!');
                     await sleep(2500);
-
+                    
                     // 5. Open Explainability Drawer
                     const incidentCards = document.querySelectorAll('#incidents-list .incident-card');
                     if (incidentCards.length > 0) {
@@ -955,7 +955,7 @@ function setupForms() {
                             await moveTo(viewBtn, 0, 0);
                             await simulateClick(viewBtn);
                             await narrator('Step 5: Transparency', 'NEXUS provides full transparency. Here is the AI decision trace and cascade map.', 4000);
-
+                            
                             // Close drawer
                             const closeDrawerBtn = document.getElementById('btn-close-drawer');
                             await moveTo(closeDrawerBtn);
@@ -965,7 +965,7 @@ function setupForms() {
                 } else {
                     showToast('error', 'Timeout', 'The Orchestrator did not respond in time.');
                 }
-
+                
                 // 6. Navigate to Train Telemetry
                 const trainTab = document.querySelector('.nav-tab[data-tab="train-telemetry"]');
                 await moveTo(trainTab);
@@ -1019,22 +1019,22 @@ function setupTabNavigation() {
     tabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
             e.preventDefault();
-
+            
             // Remove active class from all tabs
             tabs.forEach(t => t.classList.remove('active'));
             // Hide all tab contents
             contents.forEach(c => c.classList.remove('active'));
-
+            
             // Add active class to clicked tab
             tab.classList.add('active');
-
+            
             // Show corresponding content
             const tabId = tab.getAttribute('data-tab');
             const targetContent = document.getElementById(`tab-${tabId}`);
             if (targetContent) {
                 targetContent.classList.add('active');
             }
-
+            
             // Update global state
             state.activeTab = tabId;
         });
@@ -1048,7 +1048,7 @@ function setupTabNavigation() {
 function setupDrawer() {
     const drawer = document.getElementById('explainer-drawer');
     const btnClose = document.getElementById('btn-close-drawer');
-
+    
     btnClose.addEventListener('click', () => {
         drawer.classList.remove('open');
     });
@@ -1056,71 +1056,71 @@ function setupDrawer() {
 
 async function openDrawer(incidentId) {
     state.selectedIncidentId = incidentId;
-
+    
     const drawer = document.getElementById('explainer-drawer');
     const loading = document.getElementById('drawer-loading');
     const content = document.getElementById('drawer-content');
-
+    
     document.getElementById('drawer-incident-id').textContent = incidentId;
-
+    
     // Reset visibility
     loading.style.display = 'flex';
     content.style.display = 'none';
     drawer.classList.add('open');
-
+    
     try {
         // Fetch cascade map and AI explanation in parallel
         const [resCascade, resExplanation] = await Promise.all([
             fetch(`${BASE_URL}/api/incidents/${incidentId}/cascade`),
             fetch(`${BASE_URL}/api/incidents/${incidentId}/explanation`)
         ]);
-
+        
         const cascadeData = await resCascade.json();
         const explanationData = await resExplanation.json();
-
+        
         // Hide loading
         loading.style.display = 'none';
         content.style.display = 'block';
-
+        
         // Populate static metrics inside drawer
         // Find current incident record
         const record = state.incidents.find(i => i.incident_id === incidentId);
-
+        
         if (record) {
             document.getElementById('drawer-anomaly-score').textContent = (record.cascade_accuracy * 1.5).toFixed(2); // Mock score scaled
             document.getElementById('drawer-anomaly-location').textContent = incidentId.replace('INCIDENT_', 'TRK_') || 'TRK_NDLS_CNB';
         }
-
+        
         // Populate explanation (converting simple markdown lists to HTML)
         let rawExp = explanationData.explanation || "Gemini Explainer unavailable for this scenario.";
         document.getElementById('drawer-explanation-text').innerHTML = formatMarkdown(rawExp);
-
+        
         // Draw DBN cascade risk table
         const cascadeContainer = document.getElementById('drawer-cascade-map-viz');
         cascadeContainer.innerHTML = '';
-
+        
         const cascadeMap = cascadeData.cascade_map || {};
         const sectors = Object.keys(cascadeMap);
-
+        
         if (sectors.length === 0) {
             cascadeContainer.innerHTML = `<div class="section-desc">No cascade risk detected. Disruption contained.</div>`;
         } else {
             sectors.forEach(sec => {
                 const stepProbs = cascadeMap[sec]; // E.g., { "5": 0.8, "10": 0.6, "15": 0.4 }
-
+                
                 const row = document.createElement('div');
                 row.className = 'cascade-row';
-
+                
                 let pBadges = "";
-                Object.keys(stepProbs).sort((a, b) => parseInt(a) - parseInt(b)).forEach(t => {
+                Object.keys(stepProbs).sort((a,b) => parseInt(a) - parseInt(b)).forEach(t => {
                     const prob = stepProbs[t];
                     let pClass = "low";
                     if (prob > 0.6) pClass = "high";
                     else if (prob > 0.3) pClass = "medium";
-
+                    
                     pBadges += `<span class="step-prob ${pClass}">T+${t}m: ${(prob * 100).toFixed(0)}%</span>`;
                 });
-
+                
                 row.innerHTML = `
                     <span class="cascade-node-id"><i class="fa-solid fa-shuffle text-muted mr-1"></i> ${sec}</span>
                     <div class="cascade-step-p">${pBadges}</div>
@@ -1128,7 +1128,7 @@ async function openDrawer(incidentId) {
                 cascadeContainer.appendChild(row);
             });
         }
-
+        
     } catch (e) {
         console.error("Error loading drawer detail", e);
         loading.innerHTML = `<i class="fa-solid fa-circle-xmark text-danger" style="font-size:2rem"></i><p>Failed to generate Gemini explainability report.</p>`;
@@ -1143,13 +1143,13 @@ function formatMarkdown(text) {
         .replace(/`([^`]+)`/g, '<code>$1</code>')
         .replace(/^\s*-\s+(.*?)$/gm, '<li>$1</li>')
         .replace(/^\s*\*\s+(.*?)$/gm, '<li>$1</li>');
-
+        
     // Wrap lists in <ul> tags
     if (html.includes('<li>')) {
         // Simple regex to group consecutive <li> elements (very basic, fits normal gemini outputs)
         html = html.replace(/(<li>.*?<\/li>)+/gs, (match) => `<ul>${match}</ul>`);
     }
-
+    
     // Convert newlines to breaks except inside lists
     return html.split('\n').map(p => {
         if (p.trim().startsWith('<ul>') || p.trim().startsWith('</ul>') || p.trim().startsWith('<li>')) return p;
@@ -1164,12 +1164,12 @@ function formatMarkdown(text) {
 function showToast(type, title, desc) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
-
+    
     let iconClass = "fa-circle-info";
     if (type === 'success') iconClass = "fa-circle-check";
     else if (type === 'error') iconClass = "fa-circle-xmark";
     else if (type === 'warning') iconClass = "fa-triangle-exclamation";
-
+    
     toast.className = `toast ${type}`;
     toast.innerHTML = `
         <div class="toast-icon"><i class="fa-solid ${iconClass}"></i></div>
@@ -1178,14 +1178,14 @@ function showToast(type, title, desc) {
             <span class="toast-desc">${desc}</span>
         </div>
     `;
-
+    
     container.appendChild(toast);
-
+    
     // Trigger animation
     setTimeout(() => {
         toast.classList.add('show');
     }, 10);
-
+    
     // Auto remove
     setTimeout(() => {
         toast.classList.remove('show');
@@ -1199,7 +1199,7 @@ function showToast(type, title, desc) {
 
 function initLearningCurveChart() {
     const validIncidents = (state.incidents || []).filter(i => i != null);
-
+    
     // Prepare data
     const labels = validIncidents.map((i, idx) => {
         const id = i.incident_id;
@@ -1208,7 +1208,7 @@ function initLearningCurveChart() {
     });
     const cascadeAccs = validIncidents.map(i => (i.cascade_accuracy || 0) * 100);
     const optimAccs = validIncidents.map(i => (i.intervention_accuracy || 0) * 100);
-
+    
     const getChartConfig = () => ({
         type: 'line',
         data: {
@@ -1289,14 +1289,14 @@ function updateLearningChart() {
     });
     const cascadeAccs = validIncidents.map(i => (i.cascade_accuracy || 0) * 100);
     const optimAccs = validIncidents.map(i => (i.intervention_accuracy || 0) * 100);
-
+    
     if (learningChart) {
         learningChart.data.labels = labels;
         learningChart.data.datasets[0].data = cascadeAccs;
         learningChart.data.datasets[1].data = optimAccs;
         learningChart.update();
     }
-
+    
     if (learningChartFull) {
         learningChartFull.data.labels = labels;
         learningChartFull.data.datasets[0].data = cascadeAccs;
@@ -1312,26 +1312,26 @@ function updateLearningChart() {
 function renderTelemetryFleetList() {
     const listContainer = document.getElementById('telemetry-fleet-list');
     if (!listContainer) return;
-
+    
     listContainer.innerHTML = '';
-
+    
     if (state.trains.length === 0) {
         listContainer.innerHTML = `<div class="text-muted p-3">No active trains detected.</div>`;
         return;
     }
-
+    
     state.trains.forEach(t => {
         const item = document.createElement('div');
         const isSelected = state.selectedTelemetryTrainId === t.id;
         item.className = `fleet-item ${isSelected ? 'active' : ''}`;
-
+        
         let statusClass = 'ok';
         if (t.status !== 'ON_TIME') statusClass = 'warning';
-
+        
         // Check if there is an active fault on this train
         const hasFault = state.activeFaults[t.id] !== undefined;
         if (hasFault) statusClass = 'danger';
-
+        
         item.innerHTML = `
             <div class="fleet-item-head">
                 <span class="fleet-item-id">${t.id}</span>
@@ -1339,16 +1339,16 @@ function renderTelemetryFleetList() {
             </div>
             <div class="fleet-item-desc">${t.name} • ${t.speed_kmph} km/h • ${t.passenger_count} pax</div>
         `;
-
+        
         item.addEventListener('click', () => {
             state.selectedTelemetryTrainId = t.id;
             renderTelemetryFleetList();
             updateTelemetryDiagnostics();
         });
-
+        
         listContainer.appendChild(item);
     });
-
+    
     // Set default selected train if none selected
     if (!state.selectedTelemetryTrainId && state.trains.length > 0) {
         state.selectedTelemetryTrainId = state.trains[0].id;
@@ -1360,32 +1360,32 @@ function renderTelemetryFleetList() {
 function updateTelemetryDiagnostics() {
     const trainId = state.selectedTelemetryTrainId;
     if (!trainId) return;
-
+    
     const train = state.trains.find(t => t.id === trainId);
     if (!train) return;
-
+    
     document.getElementById('diag-active-train-id').textContent = train.id;
     const statusEl = document.getElementById('diag-active-train-status');
-
+    
     // Check for active faults on the train or track section it is occupying
     let activeFaultsOnTrain = [];
-
+    
     // Direct train fault
     if (state.activeFaults[train.id]) {
         activeFaultsOnTrain = activeFaultsOnTrain.concat(state.activeFaults[train.id]);
     }
-
+    
     // Track fault
     state.tracks.forEach(track => {
         const isOnTrack = (track.from === train.current_station && track.to === train.next_station) ||
-            (track.from === train.next_station && track.to === train.current_station);
+                          (track.from === train.next_station && track.to === train.current_station);
         if (isOnTrack && state.activeFaults[track.id]) {
             activeFaultsOnTrain = activeFaultsOnTrain.concat(state.activeFaults[track.id]);
         }
     });
-
+    
     const hasFault = activeFaultsOnTrain.length > 0;
-
+    
     if (hasFault) {
         statusEl.className = 'diag-badge danger flashing';
         statusEl.textContent = 'ANOMALOUS';
@@ -1393,7 +1393,7 @@ function updateTelemetryDiagnostics() {
         statusEl.className = 'diag-badge ok';
         statusEl.textContent = train.status;
     }
-
+    
     // Update SVG wheels rotation class based on speed
     const svgEl = document.getElementById('train-bogie-svg');
     if (train.speed_kmph > 0) {
@@ -1401,31 +1401,31 @@ function updateTelemetryDiagnostics() {
     } else {
         svgEl.classList.remove('spinning');
     }
-
+    
     // Reset wheel classes
     const bogies = ['loco-front', 'loco-rear', 'coach1-front', 'coach1-rear', 'coach2-front', 'coach2-rear'];
     bogies.forEach(bid => {
         const el = document.getElementById(`bogie-${bid}`);
         if (el) el.classList.remove('active', 'anomalous');
     });
-
+    
     // Highlight active bogie
     const activeBogieEl = document.getElementById(`bogie-${state.selectedBogieId}`);
     if (activeBogieEl) activeBogieEl.classList.add('active');
-
+    
     // If there is an active fault, highlight the anomalous bogie (we target coach1-front visually)
     if (hasFault) {
         const faultBogieEl = document.getElementById('bogie-coach1-front');
         if (faultBogieEl) faultBogieEl.classList.add('anomalous');
     }
-
+    
     // Generate data for the active bogie
     const speed = train.speed_kmph;
     let baseVibration = (speed / 120) * 0.4 + 0.02;
     let baseStress = (speed / 120) * 0.8 + 0.05;
     let baseTemp = (speed / 120) * 30 + 35;
     let baseVoltage = speed > 0 ? 25.1 : 0.0;
-
+    
     // If the selected bogie is the one with the fault:
     if (hasFault && state.selectedBogieId === 'coach1-front') {
         activeFaultsOnTrain.forEach(sensor => {
@@ -1435,7 +1435,7 @@ function updateTelemetryDiagnostics() {
             if (sensor === 'voltage') baseVoltage = 14.8;
         });
     }
-
+    
     // Add minor noise
     if (speed > 0) {
         baseVibration += Math.random() * 0.02;
@@ -1443,42 +1443,42 @@ function updateTelemetryDiagnostics() {
         baseTemp += Math.random() * 0.8;
         if (baseVoltage > 0) baseVoltage += Math.random() * 0.1 - 0.05;
     }
-
+    
     // Readout updates
     document.getElementById('tel-bogie-id').textContent = formatBogieId(state.selectedBogieId);
-
+    
     const vibVal = document.getElementById('tel-vibration');
     const stressVal = document.getElementById('tel-stress');
     const tempVal = document.getElementById('tel-temp');
     const voltVal = document.getElementById('tel-voltage');
-
+    
     vibVal.textContent = baseVibration.toFixed(2);
     stressVal.textContent = baseStress.toFixed(2);
     tempVal.textContent = baseTemp.toFixed(1);
     voltVal.textContent = baseVoltage.toFixed(1);
-
+    
     // Bar animations
     const vibBar = document.getElementById('tel-bar-vibration');
     const stressBar = document.getElementById('tel-bar-stress');
     const tempBar = document.getElementById('tel-bar-temp');
     const voltBar = document.getElementById('tel-bar-voltage');
-
+    
     const vibPct = Math.min(100, (baseVibration / 3.0) * 100);
     vibBar.style.width = `${vibPct}%`;
     vibBar.className = `tel-bar-fill ${baseVibration > 1.0 ? 'danger' : (baseVibration > 0.5 ? 'warning' : '')}`;
-
+    
     const stressPct = Math.min(100, (baseStress / 5.0) * 100);
     stressBar.style.width = `${stressPct}%`;
     stressBar.className = `tel-bar-fill ${baseStress > 2.5 ? 'danger' : (baseStress > 1.5 ? 'warning' : '')}`;
-
+    
     const tempPct = Math.min(100, (baseTemp / 120) * 100);
     tempBar.style.width = `${tempPct}%`;
     tempBar.className = `tel-bar-fill ${baseTemp > 80 ? 'danger' : (baseTemp > 60 ? 'warning' : '')}`;
-
+    
     const voltPct = Math.min(100, (baseVoltage / 30) * 100);
     voltBar.style.width = `${voltPct}%`;
     voltBar.className = `tel-bar-fill ${baseVoltage > 0 && baseVoltage < 22 ? 'danger' : ''}`;
-
+    
     // Diagnostic log update
     const logEl = document.getElementById('tel-diagnostics-summary');
     if (hasFault) {
