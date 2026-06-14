@@ -859,16 +859,16 @@ function setupForms() {
     if (btnShowcase) {
         btnShowcase.addEventListener('click', async () => {
             btnShowcase.disabled = true;
-            btnShowcase.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Running...`;
+            btnShowcase.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Running Demo...`;
             
             // Create a fake cursor
             const cursor = document.createElement('div');
-            cursor.innerHTML = '<i class="fa-solid fa-arrow-pointer" style="font-size: 28px; color: #ff3366; filter: drop-shadow(3px 5px 5px rgba(0,0,0,0.4));"></i>';
+            cursor.innerHTML = '<i class="fa-solid fa-arrow-pointer" style="font-size: 32px; color: #ff0055; filter: drop-shadow(4px 6px 8px rgba(0,0,0,0.5));"></i>';
             cursor.style.position = 'fixed';
             cursor.style.zIndex = '999999';
-            cursor.style.top = '10px';
+            cursor.style.top = '50%';
             cursor.style.left = '50%';
-            cursor.style.transition = 'all 1.2s ease-in-out';
+            cursor.style.transition = 'all 1.5s cubic-bezier(0.25, 1, 0.5, 1)';
             cursor.style.pointerEvents = 'none';
             document.body.appendChild(cursor);
 
@@ -877,31 +877,39 @@ function setupForms() {
             const moveTo = async (element, offsetX = 0, offsetY = 0) => {
                 if (!element) return;
                 element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                await sleep(500); // Wait for scroll
+                await sleep(600); // Wait for scroll
                 const rect = element.getBoundingClientRect();
                 cursor.style.top = `${rect.top + rect.height/2 + offsetY}px`;
                 cursor.style.left = `${rect.left + rect.width/2 + offsetX}px`;
-                await sleep(1300); // Wait for transition
+                await sleep(1600); // Wait for transition
             };
 
             const simulateClick = async (element) => {
                 if (!element) return;
-                cursor.style.transform = 'scale(0.7)';
+                cursor.style.transform = 'scale(0.6)';
                 await sleep(150);
                 cursor.style.transform = 'scale(1)';
                 element.click();
-                await sleep(500);
+                await sleep(600);
+            };
+
+            const narrator = async (title, message, waitMs) => {
+                showToast('info', title, message);
+                await sleep(waitMs);
             };
 
             try {
-                showToast('info', 'Guided Tour Started', 'Watch the autonomous AI in action...');
-                await sleep(1000);
+                await narrator('Welcome to NEXUS', 'Starting the automated system tour...', 2500);
+
+                // Ensure we are on dashboard tab
+                const dashboardTab = document.querySelector('.nav-tab[data-tab="dashboard"]');
+                await moveTo(dashboardTab);
+                await simulateClick(dashboardTab);
+                await narrator('Step 1: Monitoring', 'Here is the main Operations Center where we monitor live telemetry.', 2500);
 
                 // 1. Move to Fault Injection form
                 const locSelect = document.getElementById('demo-location-select');
                 await moveTo(locSelect, 50, 0);
-                
-                // Select first track
                 if (locSelect.options.length > 1) {
                     locSelect.selectedIndex = 1;
                     locSelect.dispatchEvent(new Event('change'));
@@ -911,14 +919,14 @@ function setupForms() {
                 const injectBtn = document.getElementById('btn-inject-fault');
                 await moveTo(injectBtn, 0, 0);
                 await simulateClick(injectBtn);
+                await narrator('Step 2: Crisis', 'A critical sensor failure has just occurred on the tracks!', 2500);
 
-                // 3. Wait for Escalation to appear
-                showToast('warning', 'Awaiting Detection', 'Waiting for AI Orchestrator to flag anomaly...');
+                // 3. Wait for Escalation
+                await narrator('Step 3: AI Detection', 'The LSTM neural networks and GraphSAGE models are analyzing the fault...', 2000);
+                
                 let waitCount = 0;
                 let escalationApproveBtn = null;
-                
                 while(waitCount < 20) {
-                    // Check if an escalation card appeared in the DOM
                     const escalationsList = document.getElementById('escalations-list');
                     const approveBtns = escalationsList ? escalationsList.querySelectorAll('.btn-primary') : [];
                     if (approveBtns.length > 0) {
@@ -930,34 +938,67 @@ function setupForms() {
                 }
 
                 if (escalationApproveBtn) {
-                    // 4. Move to Approve button and click
-                    await sleep(1500); // Give user time to read the HIL card
+                    await narrator('Step 4: AI Resolution', 'The AI generated an optimal counterfactual intervention. Approving it now...', 3000);
+                    
+                    // Move to Approve button and click
                     await moveTo(escalationApproveBtn, 0, 0);
                     await simulateClick(escalationApproveBtn);
                     
-                    showToast('success', 'Intervention Approved', 'AI automatically resolving the crisis...');
-                    await sleep(2000);
+                    showToast('success', 'Crisis Averted', 'Intervention deployed successfully!');
+                    await sleep(2500);
                     
-                    // 5. Move to Active Incidents and open Explainability Drawer
+                    // 5. Open Explainability Drawer
                     const incidentCards = document.querySelectorAll('#incidents-list .incident-card');
                     if (incidentCards.length > 0) {
-                        const viewBtn = incidentCards[0].querySelector('.btn-sm'); // The 'Details' button
+                        const viewBtn = incidentCards[0].querySelector('.btn-sm');
                         if (viewBtn) {
                             await moveTo(viewBtn, 0, 0);
                             await simulateClick(viewBtn);
-                            showToast('info', 'Explainability', 'Viewing the AI cascade map and reasoning.');
+                            await narrator('Step 5: Transparency', 'NEXUS provides full transparency. Here is the AI decision trace and cascade map.', 4000);
+                            
+                            // Close drawer
+                            const closeDrawerBtn = document.getElementById('btn-close-drawer');
+                            await moveTo(closeDrawerBtn);
+                            await simulateClick(closeDrawerBtn);
                         }
                     }
                 } else {
                     showToast('error', 'Timeout', 'The Orchestrator did not respond in time.');
                 }
                 
-                // Hide cursor after demo
+                // 6. Navigate to Train Telemetry
+                const trainTab = document.querySelector('.nav-tab[data-tab="train-telemetry"]');
+                await moveTo(trainTab);
+                await simulateClick(trainTab);
+                await narrator('Step 6: Live Telemetry', 'We also track every single train with live streaming IoT data from the MQTT broker.', 3500);
+
+                // 7. Navigate to Network Explorer
+                const networkTab = document.querySelector('.nav-tab[data-tab="network-explorer"]');
+                await moveTo(networkTab);
+                await simulateClick(networkTab);
+                await narrator('Step 7: Network Graph', 'NEXUS maps the entire railway system into a Neo4j Knowledge Graph for spatial awareness.', 4000);
+
+                // 8. Navigate to Incidents Log
+                const incidentsTab = document.querySelector('.nav-tab[data-tab="incidents-log"]');
+                await moveTo(incidentsTab);
+                await simulateClick(incidentsTab);
+                await narrator('Step 8: Historic Logs', 'All anomalies and operator interventions are permanently logged for review.', 3500);
+
+                // 9. Navigate to Analytics Insights
+                const analyticsTab = document.querySelector('.nav-tab[data-tab="analytics-insights"]');
+                await moveTo(analyticsTab);
+                await simulateClick(analyticsTab);
+                await narrator('Step 9: Continuous Learning', 'Finally, our post-incident learning agent analyzes every crisis to improve future AI accuracy!', 4500);
+
+                // End Tour
+                await moveTo(dashboardTab);
+                await simulateClick(dashboardTab);
+                showToast('success', 'Tour Complete', 'Thank you for exploring the NEXUS platform!');
                 await sleep(3000);
 
             } catch (err) {
                 console.error(err);
-                showToast('error', 'Demo Error', 'Guided tour failed.');
+                showToast('error', 'Demo Error', 'Guided tour failed to complete.');
             } finally {
                 cursor.remove();
                 btnShowcase.disabled = false;
