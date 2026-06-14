@@ -1009,6 +1009,39 @@ function setupForms() {
 }
 
 // -------------------------------------------------------------------------
+// Tab Navigation Logic
+// -------------------------------------------------------------------------
+
+function setupTabNavigation() {
+    const tabs = document.querySelectorAll('.nav-tab');
+    const contents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Remove active class from all tabs
+            tabs.forEach(t => t.classList.remove('active'));
+            // Hide all tab contents
+            contents.forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked tab
+            tab.classList.add('active');
+            
+            // Show corresponding content
+            const tabId = tab.getAttribute('data-tab');
+            const targetContent = document.getElementById(`tab-${tabId}`);
+            if (targetContent) {
+                targetContent.classList.add('active');
+            }
+            
+            // Update global state
+            state.activeTab = tabId;
+        });
+    });
+}
+
+// -------------------------------------------------------------------------
 // Slideout Explainability Drawer Panel
 // -------------------------------------------------------------------------
 
